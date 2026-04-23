@@ -1,0 +1,7 @@
+node_modules/
+.next/
+reports/
+.env
+dist/
+*.js.map
+.kiro
