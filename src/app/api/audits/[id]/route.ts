@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Opportunity } from '@/types';
+import { Opportunity, AgentPrompt } from '@/types';
 
 /**
  * GET /api/audits/:id
@@ -28,6 +28,10 @@ export async function GET(
       ? (run.opportunitiesJson as unknown as Opportunity[])
       : [];
 
+    const agentPrompts: AgentPrompt[] = Array.isArray((run as any).agentPromptsJson)
+      ? ((run as any).agentPromptsJson as AgentPrompt[])
+      : [];
+
     return NextResponse.json({
       id: run.id,
       status: run.status,
@@ -49,6 +53,7 @@ export async function GET(
         speedIndex: run.speedIndex,
       },
       opportunities,
+      agentPrompts,
       aiSummary: run.aiSummary,
       createdAt: run.createdAt.toISOString(),
     });

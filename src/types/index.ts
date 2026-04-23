@@ -48,6 +48,20 @@ export interface Opportunity {
   savingsBytes?: number;
 }
 
+// Agent investigation prompt — one per top opportunity
+export interface AgentPrompt {
+  opportunityId: string;
+  opportunityTitle: string;
+  savingsMs: number | null;
+  savingsBytes: number | null;
+  prompt: string; // full investigation prompt text, ready to paste into a code agent
+}
+
+export interface AiSummaryOutput {
+  summary: string;            // human-readable Good/Needs Attention/Recommended Fixes
+  agentPrompts: AgentPrompt[]; // investigation prompts for code agents
+}
+
 export interface ExtractedMetrics {
   performanceScore: number | null;
   accessibilityScore: number | null;
@@ -59,6 +73,20 @@ export interface ExtractedMetrics {
   fcp: number | null;
   speedIndex: number | null;
   opportunities: Opportunity[];
+}
+
+// Agent investigation prompt — one per top opportunity
+export interface AgentPrompt {
+  opportunityId: string;
+  opportunityTitle: string;
+  savingsMs: number | null;
+  savingsBytes: number | null;
+  prompt: string; // full investigation prompt text, ready to paste into a code agent
+}
+
+export interface AiSummaryOutput {
+  summary: string;       // human-readable Good / Needs Attention / Recommended Fixes
+  agentPrompts: AgentPrompt[]; // investigation prompts sorted by estimated savings
 }
 
 // API response types

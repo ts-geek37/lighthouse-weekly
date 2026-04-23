@@ -133,10 +133,15 @@ async function runOrchestratorLoop(
         },
       });
 
-      const summary = await mockGenerateSummary({ url: urlEntry.url, metrics }, mockLog);
+      const summary = await mockGenerateSummary(
+        { url: urlEntry.url, pageType: 'homepage', metrics },
+        mockLog
+      );
       await prismaAuditRun.update({
         where: { id: auditRun.id },
-        data: { aiSummary: summary.success ? summary.summary : (summary as any).fallback },
+        data: {
+          aiSummary: summary.success ? summary.output.summary : (summary as any).fallback,
+        },
       });
 
       auditRunIds.push(auditRun.id);
@@ -168,7 +173,7 @@ describe('Pipeline orchestrator loop', () => {
       .mockResolvedValueOnce({ success: true, lhr: {} as any });
 
     mockExtractMetrics.mockReturnValue(buildMockMetrics());
-    mockGenerateSummary.mockResolvedValue({ success: true, summary: 'Test summary' });
+    mockGenerateSummary.mockResolvedValue({ success: true, output: { summary: 'Test summary', agentPrompts: [] } });
 
     const mockAuditRun = {
       create: jest.fn()
@@ -211,7 +216,7 @@ describe('Pipeline orchestrator loop', () => {
 
     mockRunAudit.mockResolvedValue({ success: true, lhr: {} as any });
     mockExtractMetrics.mockReturnValue(buildMockMetrics());
-    mockGenerateSummary.mockResolvedValue({ success: true, summary: 'Summary' });
+    mockGenerateSummary.mockResolvedValue({ success: true, output: { summary: 'Summary', agentPrompts: [] } });
 
     const mockAuditRun = {
       create: jest.fn().mockResolvedValue({ id: 'run-1' }),
@@ -239,7 +244,7 @@ describe('Pipeline orchestrator loop', () => {
       .mockResolvedValueOnce({ success: true, lhr: {} as any });
 
     mockExtractMetrics.mockReturnValue(buildMockMetrics());
-    mockGenerateSummary.mockResolvedValue({ success: true, summary: 'Summary' });
+    mockGenerateSummary.mockResolvedValue({ success: true, output: { summary: 'Summary', agentPrompts: [] } });
 
     const mockAuditRun = {
       create: jest.fn().mockResolvedValue({ id: 'run-2' }),

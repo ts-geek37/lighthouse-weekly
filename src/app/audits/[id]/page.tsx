@@ -4,7 +4,14 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ScoreBadge } from '@/components/ScoreBadge';
 
-// ... (types omitted for brevity — same as before)
+interface AgentPrompt {
+  opportunityId: string;
+  opportunityTitle: string;
+  priority: number;
+  estimatedSavingsMs?: number;
+  estimatedSavingsBytes?: number;
+  prompt: string;
+}
 
 interface AuditDetail {
   id: string;
@@ -33,6 +40,7 @@ interface AuditDetail {
     savingsMs?: number;
     savingsBytes?: number;
   }>;
+  agentPrompts: AgentPrompt[];
   aiSummary: string | null;
   createdAt: string;
 }
@@ -46,11 +54,7 @@ function formatMs(value: number | null): string {
 function vitalStatus(metric: string, value: number | null): 'good' | 'needs-improvement' | 'poor' | 'unknown' {
   if (value === null) return 'unknown';
   const thresholds: Record<string, [number, number]> = {
-    lcp: [2500, 4000],
-    cls: [0.1, 0.25],
-    inpOrTbt: [200, 500],
-    fcp: [1800, 3000],
-    speedIndex: [3400, 5800],
+    lcp: [2500, 4000], cls: [0.1, 0.25], inpOrTbt: [200, 500], fcp: [1800, 3000], speedIndex: [3400, 5800],
   };
   const [good, poor] = thresholds[metric] ?? [Infinity, Infinity];
   if (value <= good) return 'good';
@@ -58,19 +62,64 @@ function vitalStatus(metric: string, value: number | null): 'good' | 'needs-impr
   return 'poor';
 }
 
-const vitalColors = {
-  good: '#065f46',
-  'needs-improvement': '#92400e',
-  poor: '#991b1b',
-  unknown: '#9ca3af',
-};
+const vitalColors = { good: '#065f46', 'needs-improvement': '#92400e', poor: '#991b1b', unknown: '#9ca3af' };
+const vitalBg = { good: '#d1fae5', 'needs-improvement': '#fef3c7', poor: '#fee2e2', unknown: '#f3f4f6' };
 
-const vitalBg = {
-  good: '#d1fae5',
-  'needs-improvement': '#fef3c7',
-  poor: '#fee2e2',
-  unknown: '#f3f4f6',
-};
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        });
+      }}
+      style={styles.copyBtn}
+    >
+      {copied ? '✓ Copied' : 'Copy prompt'}
+    </button>
+  );
+}
+
+function AgentPromptCard({ prompt, index }: { prompt: AgentPrompt; index: number }) {
+  const [expanded, setExpanded] = useState(index === 0);
+
+  const savings = [
+    prompt.estimatedSavingsMs !== undefined ? `~${prompt.estimatedSavingsMs}ms` : '',
+    prompt.estimatedSavingsBytes !== undefined ? `~${Math.round(prompt.estimatedSavingsBytes / 1024)}KB` : '',
+  ].filter(Boolean).join(' / ');
+
+  return (
+    <div style={styles.agentCard}>
+      <div style={styles.agentCardHeader} onClick={() => setExpanded(e => !e)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+          <span style={styles.priorityBadge}>#{prompt.priority}</span>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#111827' }}>
+              {prompt.opportunityTitle}
+            </div>
+            {savings && (
+              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.1rem' }}>
+                Estimated savings: {savings}
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {expanded && <CopyButton text={prompt.prompt} />}
+          <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>{expanded ? '▲' : '▼'}</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={styles.agentCardBody}>
+          <pre style={styles.promptPre}>{prompt.prompt}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -84,10 +133,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
         if (r.status === 404) { setNotFound(true); setLoading(false); return null; }
         return r.json();
       })
-      .then(data => {
-        if (data) setAudit(data);
-        setLoading(false);
-      })
+      .then(data => { if (data) setAudit(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, [id]);
 
@@ -103,7 +149,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
   const vitals = [
     { key: 'lcp', label: 'LCP', value: audit.coreWebVitals.lcp, desc: 'Largest Contentful Paint' },
     { key: 'cls', label: 'CLS', value: audit.coreWebVitals.cls, desc: 'Cumulative Layout Shift' },
-    { key: 'inpOrTbt', label: 'INP/TBT', value: audit.coreWebVitals.inpOrTbt, desc: 'Interaction to Next Paint / Total Blocking Time' },
+    { key: 'inpOrTbt', label: 'INP/TBT', value: audit.coreWebVitals.inpOrTbt, desc: 'INP / Total Blocking Time' },
     { key: 'fcp', label: 'FCP', value: audit.coreWebVitals.fcp, desc: 'First Contentful Paint' },
     { key: 'speedIndex', label: 'Speed Index', value: audit.coreWebVitals.speedIndex, desc: 'Speed Index' },
   ];
@@ -125,28 +171,24 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
       <div style={styles.pageHeader}>
         <div>
           <h1 style={styles.title}>{audit.pageType} Audit</h1>
-          <a href={audit.url} target="_blank" rel="noopener noreferrer" style={styles.urlLink}>
-            {audit.url}
-          </a>
+          <a href={audit.url} target="_blank" rel="noopener noreferrer" style={styles.urlLink}>{audit.url}</a>
           <div style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: '#6b7280' }}>
             {audit.projectTitle} · {audit.environment} · {audit.projectOwner} · {new Date(audit.createdAt).toLocaleString()}
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {audit.status === 'failed' && (
-            <span style={styles.failedBadge}>Audit Failed</span>
-          )}
+          {audit.status === 'failed' && <span style={styles.failedBadge}>Audit Failed</span>}
           <Link href="/audits/new" style={styles.rerunBtn}>↺ Re-run</Link>
         </div>
       </div>
 
       {audit.status === 'failed' ? (
         <div style={styles.errorBox}>
-          This audit failed. No metrics are available. You can re-run the audit using the button above.
+          This audit failed. No metrics are available. Re-run the audit using the button above.
         </div>
       ) : (
         <>
-          {/* Score cards */}
+          {/* Scores */}
           <div style={styles.scoresGrid}>
             {[
               { label: 'Performance', score: audit.performanceScore },
@@ -195,9 +237,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
                       <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.15rem' }}>{opp.description}</div>
                     </div>
                     <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
-                      {opp.savingsMs !== undefined && (
-                        <div style={styles.savingsBadge}>~{opp.savingsMs}ms</div>
-                      )}
+                      {opp.savingsMs !== undefined && <div style={styles.savingsBadge}>~{opp.savingsMs}ms</div>}
                       {opp.savingsBytes !== undefined && (
                         <div style={{ ...styles.savingsBadge, background: '#eff6ff', color: '#1d4ed8' }}>
                           ~{Math.round(opp.savingsBytes / 1024)}KB
@@ -210,30 +250,42 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           )}
 
-          {/* AI Summary */}
+          {/* AI Engineering Summary */}
           {audit.aiSummary && (
             <div style={styles.section}>
               <h2 style={styles.sectionTitle}>AI Engineering Summary</h2>
               <div style={styles.summaryCard}>
                 {audit.aiSummary.split('\n').map((line, i) => {
                   if (line.startsWith('## ')) {
-                    const sectionName = line.replace('## ', '');
-                    const icon = sectionName === 'Good' ? '✅' : sectionName === 'Needs Attention' ? '⚠️' : '🔧';
-                    return (
-                      <h3 key={i} style={styles.summarySection}>
-                        {icon} {sectionName}
-                      </h3>
-                    );
+                    const name = line.replace('## ', '');
+                    const icon = name === 'Good' ? '✅' : name === 'Needs Attention' ? '⚠️' : '🔧';
+                    return <h3 key={i} style={styles.summarySection}>{icon} {name}</h3>;
                   }
                   if (line.startsWith('- ')) {
-                    return (
-                      <p key={i} style={styles.summaryBullet}>
-                        • {line.slice(2)}
-                      </p>
-                    );
+                    return <p key={i} style={styles.summaryBullet}>• {line.slice(2)}</p>;
                   }
                   return line ? <p key={i} style={{ margin: '0.2rem 0', fontSize: '0.875rem' }}>{line}</p> : null;
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Agent Investigation Prompts */}
+          {audit.agentPrompts && audit.agentPrompts.length > 0 && (
+            <div style={styles.section}>
+              <div style={styles.agentSectionHeader}>
+                <div>
+                  <h2 style={{ ...styles.sectionTitle, margin: 0 }}>🤖 Agent Investigation Prompts</h2>
+                  <p style={styles.agentSectionDesc}>
+                    Paste these into your AI coding agent (Cursor, Copilot, Claude, etc.) to investigate root causes.
+                    The agent will search your codebase and report findings — not implement fixes.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '0.75rem' }}>
+                {audit.agentPrompts.map((prompt, i) => (
+                  <AgentPromptCard key={prompt.opportunityId} prompt={prompt} index={i} />
+                ))}
               </div>
             </div>
           )}
@@ -266,4 +318,13 @@ const styles: Record<string, React.CSSProperties> = {
   summaryCard: { background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.25rem' },
   summarySection: { margin: '1rem 0 0.4rem', fontSize: '1rem', fontWeight: 600, color: '#1f2937' },
   summaryBullet: { margin: '0.3rem 0', paddingLeft: '0.5rem', fontSize: '0.875rem', lineHeight: 1.6, color: '#374151' },
+  // Agent prompts
+  agentSectionHeader: { marginBottom: '1rem' },
+  agentSectionDesc: { margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#6b7280', maxWidth: '600px' },
+  agentCard: { border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#fff' },
+  agentCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', cursor: 'pointer', background: '#f9fafb', gap: '1rem' },
+  agentCardBody: { padding: '0 1.25rem 1.25rem', borderTop: '1px solid #e5e7eb' },
+  priorityBadge: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', background: '#2563eb', color: '#fff', borderRadius: '50%', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 },
+  promptPre: { margin: '1rem 0 0', padding: '1rem', background: '#1e1e2e', color: '#cdd6f4', borderRadius: '6px', fontSize: '0.8rem', lineHeight: 1.7, overflowX: 'auto' as const, whiteSpace: 'pre-wrap' as const, wordBreak: 'break-word' as const },
+  copyBtn: { padding: '0.3rem 0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '5px', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' as const },
 };

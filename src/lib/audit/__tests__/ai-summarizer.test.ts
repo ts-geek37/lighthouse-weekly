@@ -19,16 +19,7 @@ jest.mock('groq-sdk', () => {
 
 import Groq from 'groq-sdk';
 
-// Mock the sleep function to avoid real 5-second delays
-jest.mock('../ai-summarizer', () => {
-  const actual = jest.requireActual('../ai-summarizer');
-  return {
-    ...actual,
-  };
-});
-
 // Override setTimeout globally to resolve immediately in tests
-const originalSetTimeout = global.setTimeout;
 beforeAll(() => {
   jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => {
     fn();
@@ -71,7 +62,7 @@ function buildTestInput(): AiSummaryInput {
     ],
   };
 
-  return { url: 'https://example.com', metrics };
+  return { url: 'https://example.com', pageType: 'homepage', metrics };
 }
 
 function buildValidSummary(): string {
@@ -81,13 +72,12 @@ function buildValidSummary(): string {
 - CLS of 0.05 is within recommended threshold
 
 ## Needs Attention
-- LCP of 2500ms exceeds the 2500ms threshold
+- LCP is 2500ms — at the good threshold boundary
 - Render-blocking resources adding ~300ms to load time
 
 ## Recommended Fixes
 - Remove unused JavaScript (~500ms savings)
-- Eliminate render-blocking resources (~300ms savings)
-- Optimize image delivery`;
+- Eliminate render-blocking resources (~300ms savings)`;
 }
 
 describe('generateSummary', () => {
@@ -96,13 +86,8 @@ describe('generateSummary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCreate = createMockGroqInstance();
-    // Reset the Groq constructor mock to return fresh instance
     (Groq as jest.MockedClass<typeof Groq>).mockImplementation(() => ({
-      chat: {
-        completions: {
-          create: mockCreate,
-        },
-      },
+      chat: { completions: { create: mockCreate } },
     }) as any);
   });
 
@@ -120,8 +105,8 @@ describe('generateSummary', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(typeof result.summary).toBe('string');
-        expect(result.summary.length).toBeGreaterThan(0);
+        expect(typeof result.output.summary).toBe('string');
+        expect(result.output.summary.length).toBeGreaterThan(0);
       }
     });
 
@@ -149,17 +134,35 @@ describe('generateSummary', () => {
       );
     });
 
-    it('includes system and user messages', async () => {
+    it('generates agent prompts for each opportunity', async () => {
       mockCreate.mockResolvedValue({
         choices: [{ message: { content: buildValidSummary() } }],
       });
 
-      await generateSummary(buildTestInput(), mockLog);
+      const result = await generateSummary(buildTestInput(), mockLog);
 
-      const callArgs = mockCreate.mock.calls[0][0];
-      expect(callArgs.messages).toHaveLength(2);
-      expect(callArgs.messages[0].role).toBe('system');
-      expect(callArgs.messages[1].role).toBe('user');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.output.agentPrompts).toHaveLength(2);
+        expect(result.output.agentPrompts[0].opportunityId).toBe('unused-javascript');
+        expect(result.output.agentPrompts[0].prompt).toContain('Investigation');
+        expect(result.output.agentPrompts[0].prompt).toContain('root cause');
+      }
+    });
+
+    it('sorts agent prompts by savings (highest first)', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [{ message: { content: buildValidSummary() } }],
+      });
+
+      const result = await generateSummary(buildTestInput(), mockLog);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // unused-javascript has 500ms savings, render-blocking has 300ms — should be first
+        expect(result.output.agentPrompts[0].opportunityId).toBe('unused-javascript');
+        expect(result.output.agentPrompts[1].opportunityId).toBe('render-blocking-resources');
+      }
     });
 
     it('logs info on successful generation', async () => {
@@ -184,9 +187,7 @@ describe('generateSummary', () => {
           choices: [{ message: { content: buildValidSummary() } }],
         });
 
-      const promise = generateSummary(buildTestInput(), mockLog);
-
-      const result = await promise;
+      const result = await generateSummary(buildTestInput(), mockLog);
 
       expect(result.success).toBe(true);
       expect(mockCreate).toHaveBeenCalledTimes(2);
@@ -199,7 +200,7 @@ describe('generateSummary', () => {
           choices: [{ message: { content: buildValidSummary() } }],
         });
 
-      const result = await generateSummary(buildTestInput(), mockLog);
+      await generateSummary(buildTestInput(), mockLog);
 
       expect(mockCreate).toHaveBeenCalledTimes(2);
     });

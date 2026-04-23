@@ -4,12 +4,12 @@ import { childLogger } from '@/lib/logger';
 import { runAudit } from '@/lib/audit/runner';
 import { extractMetrics } from '@/lib/audit/metrics-extractor';
 import { generateSummary } from '@/lib/audit/ai-summarizer';
-import { Opportunity } from '@/types';
+import { Opportunity, AgentPrompt } from '@/types';
 
 export interface RunAuditRequest {
   url: string;
-  projectUrlId?: string; // optional — links result to a tracked project URL
-  pageType?: string;     // optional label when running ad-hoc
+  projectUrlId?: string;
+  pageType?: string;
 }
 
 export interface RunAuditResponse {
@@ -29,6 +29,7 @@ export interface RunAuditResponse {
   };
   opportunities: Opportunity[];
   aiSummary: string | null;
+  agentPrompts: AgentPrompt[];
   createdAt: string;
   error?: string;
 }
@@ -116,6 +117,7 @@ export async function POST(request: NextRequest) {
         coreWebVitals: { lcp: null, cls: null, inpOrTbt: null, fcp: null, speedIndex: null },
         opportunities: [],
         aiSummary: null,
+        agentPrompts: [],
         createdAt: failedRun.createdAt.toISOString(),
         error: auditResult.error,
       };
@@ -158,12 +160,13 @@ export async function POST(request: NextRequest) {
     createdAt = auditRun.createdAt.toISOString();
 
     // Generate AI summary and update record
-    const summaryResult = await generateSummary({ url, metrics }, log);
-    const aiSummary = summaryResult.success ? summaryResult.summary : summaryResult.fallback;
+    const summaryResult = await generateSummary({ url, pageType, metrics }, log);
+    const aiSummary = summaryResult.success ? summaryResult.output.summary : summaryResult.fallback;
+    const agentPrompts = summaryResult.success ? summaryResult.output.agentPrompts : [];
 
     await prisma.auditRun.update({
       where: { id: auditRunId },
-      data: { aiSummary },
+      data: { aiSummary, waZ: agentPrompts as any } as any,
     });
 
     const response: RunAuditResponse = {
@@ -183,6 +186,7 @@ export async function POST(request: NextRequest) {
       },
       opportunities: metrics.opportunities,
       aiSummary,
+      agentPrompts,
       createdAt,
     };
 
@@ -191,8 +195,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Ad-hoc run (not linked to a project) — return results without saving
-  const summaryResult = await generateSummary({ url, metrics }, log);
-  const aiSummary = summaryResult.success ? summaryResult.summary : summaryResult.fallback;
+  const summaryResult = await generateSummary({ url, pageType, metrics }, log);
+  const aiSummary = summaryResult.success ? summaryResult.output.summary : summaryResult.fallback;
+  const agentPrompts = summaryResult.success ? summaryResult.output.agentPrompts : [];
 
   const response: RunAuditResponse = {
     auditRunId: `adhoc-${Date.now()}`,
@@ -211,6 +216,7 @@ export async function POST(request: NextRequest) {
     },
     opportunities: metrics.opportunities,
     aiSummary,
+    agentPrompts,
     createdAt: new Date().toISOString(),
   };
 

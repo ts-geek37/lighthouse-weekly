@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "audit": "ts-node --project tsconfig.scripts.json scripts/run-audits.ts",
+    "audit": "ts-node --project tsconfig.scripts.json -r tsconfig-paths/register scripts/run-audits.ts",
     "test": "jest",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate"
@@ -16,6 +16,7 @@
     "@prisma/client": "^7.8.0",
     "@types/pg": "^8.20.0",
     "chrome-launcher": "1.1.2",
+    "dotenv": "^17.4.2",
     "groq-sdk": "0.9.1",
     "lighthouse": "12.2.1",
     "next": "15.3.9",
@@ -34,6 +35,7 @@
     "prisma": "^7.8.0",
     "ts-jest": "^29.2.5",
     "ts-node": "10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "5.8.3"
   },
   "jest": {

@@ -21,6 +21,13 @@ interface AuditResult {
     speedIndex: number | null;
   };
   opportunities: Array<{ id: string; title: string; description: string; savingsMs?: number; savingsBytes?: number }>;
+  agentPrompts: Array<{
+    opportunityId: string;
+    opportunityTitle: string;
+    savingsMs: number | null;
+    savingsBytes: number | null;
+    prompt: string;
+  }>;
   aiSummary: string | null;
   error?: string;
 }
@@ -268,6 +275,38 @@ export default function RunAuditPage() {
                   </div>
                 </div>
               )}
+
+              {/* Agent Investigation Prompts */}
+              {result.agentPrompts && result.agentPrompts.length > 0 && (
+                <div style={styles.section}>
+                  <h3 style={styles.sectionTitle}>🤖 Agent Investigation Prompts</h3>
+                  <p style={{ margin: '-0.5rem 0 0.75rem', fontSize: '0.8rem', color: '#6b7280' }}>
+                    Paste into Cursor, Copilot, or Claude to find root causes — not implement fixes.
+                  </p>
+                  {result.agentPrompts.map((p, i) => {
+                    const savings = [
+                      p.savingsMs ? `~${p.savingsMs}ms` : '',
+                      p.savingsBytes ? `~${Math.round(p.savingsBytes / 1024)}KB` : '',
+                    ].filter(Boolean).join(' / ');
+                    return (
+                      <details key={p.opportunityId} style={styles.agentDetails} open={i === 0}>
+                        <summary style={styles.agentSummary}>
+                          <span style={styles.agentPriority}>#{i + 1}</span>
+                          <span style={{ fontWeight: 500 }}>{p.opportunityTitle}</span>
+                          {savings && <span style={{ color: '#6b7280', fontSize: '0.8rem', marginLeft: '0.5rem' }}>{savings}</span>}
+                          <button
+                            style={styles.copyBtnSmall}
+                            onClick={e => { e.preventDefault(); navigator.clipboard.writeText(p.prompt); }}
+                          >
+                            Copy
+                          </button>
+                        </summary>
+                        <pre style={styles.agentPre}>{p.prompt}</pre>
+                      </details>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -304,4 +343,9 @@ const styles: Record<string, React.CSSProperties> = {
   vitalsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' },
   vitalCard: { background: '#f9fafb', borderRadius: '6px', padding: '0.75rem', textAlign: 'center' as const },
   summaryBox: { background: '#f9fafb', borderRadius: '6px', padding: '1rem', fontSize: '0.875rem', lineHeight: 1.6 },
+  agentDetails: { border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '0.5rem', overflow: 'hidden' },
+  agentSummary: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.875rem 1rem', cursor: 'pointer', background: '#f9fafb', fontSize: '0.875rem', listStyle: 'none' },
+  agentPriority: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', background: '#2563eb', color: '#fff', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 },
+  agentPre: { margin: 0, padding: '1rem', background: '#1e1e2e', color: '#cdd6f4', fontSize: '0.78rem', lineHeight: 1.7, overflowX: 'auto' as const, whiteSpace: 'pre-wrap' as const, wordBreak: 'break-word' as const },
+  copyBtnSmall: { marginLeft: 'auto', padding: '0.2rem 0.6rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' },
 };

@@ -6,6 +6,9 @@
  *   npm run audit          (GitHub Actions — same command)
  */
 
+// Load .env file before any other imports that need environment variables
+import 'dotenv/config';
+
 import { loadConfig } from '../src/lib/config';
 import { logger, childLogger } from '../src/lib/logger';
 import { prisma } from '../src/lib/prisma';
@@ -117,17 +120,24 @@ async function main(): Promise<void> {
 
         // ── AI summary ──────────────────────────────────────────────────────
         const summaryResult = await generateSummary(
-          { url: projectUrl.url, metrics },
+          { url: projectUrl.url, pageType: projectUrl.pageType, metrics },
           urlLog
         );
 
         const aiSummary = summaryResult.success
-          ? summaryResult.summary
+          ? summaryResult.output.summary
           : summaryResult.fallback;
+
+        const agentPromptsJson = summaryResult.success
+          ? summaryResult.output.agentPrompts
+          : null;
 
         await prisma.auditRun.update({
           where: { id: auditRun.id },
-          data: { aiSummary },
+          data: {
+            aiSummary,
+            agentPromptsJson: agentPromptsJson as any,
+          } as any,
         });
 
         context.auditRunIds.push(auditRun.id);
