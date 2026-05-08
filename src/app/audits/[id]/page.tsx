@@ -3,15 +3,8 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ScoreBadge } from '@/components/ScoreBadge';
-
-interface AgentPrompt {
-  opportunityId: string;
-  opportunityTitle: string;
-  priority: number;
-  estimatedSavingsMs?: number;
-  estimatedSavingsBytes?: number;
-  prompt: string;
-}
+import { AgentPrompt } from '@/types';
+import { AgentPromptCard } from '@/components/AgentPromptCard';
 
 interface AuditDetail {
   id: string;
@@ -64,62 +57,6 @@ function vitalStatus(metric: string, value: number | null): 'good' | 'needs-impr
 
 const vitalColors = { good: '#065f46', 'needs-improvement': '#92400e', poor: '#991b1b', unknown: '#9ca3af' };
 const vitalBg = { good: '#d1fae5', 'needs-improvement': '#fef3c7', poor: '#fee2e2', unknown: '#f3f4f6' };
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => {
-        navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        });
-      }}
-      style={styles.copyBtn}
-    >
-      {copied ? '✓ Copied' : 'Copy prompt'}
-    </button>
-  );
-}
-
-function AgentPromptCard({ prompt, index }: { prompt: AgentPrompt; index: number }) {
-  const [expanded, setExpanded] = useState(index === 0);
-
-  const savings = [
-    prompt.estimatedSavingsMs !== undefined ? `~${prompt.estimatedSavingsMs}ms` : '',
-    prompt.estimatedSavingsBytes !== undefined ? `~${Math.round(prompt.estimatedSavingsBytes / 1024)}KB` : '',
-  ].filter(Boolean).join(' / ');
-
-  return (
-    <div style={styles.agentCard}>
-      <div style={styles.agentCardHeader} onClick={() => setExpanded(e => !e)}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-          <span style={styles.priorityBadge}>#{prompt.priority}</span>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#111827' }}>
-              {prompt.opportunityTitle}
-            </div>
-            {savings && (
-              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.1rem' }}>
-                Estimated savings: {savings}
-              </div>
-            )}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {expanded && <CopyButton text={prompt.prompt} />}
-          <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>{expanded ? '▲' : '▼'}</span>
-        </div>
-      </div>
-
-      {expanded && (
-        <div style={styles.agentCardBody}>
-          <pre style={styles.promptPre}>{prompt.prompt}</pre>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function AuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -237,10 +174,12 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
                       <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.15rem' }}>{opp.description}</div>
                     </div>
                     <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
-                      {opp.savingsMs !== undefined && <div style={styles.savingsBadge}>~{opp.savingsMs}ms</div>}
-                      {opp.savingsBytes !== undefined && (
+                      {opp.savingsMs !== undefined && opp.savingsMs > 0 && (
+                        <div style={styles.savingsBadge}>{formatMs(opp.savingsMs)}</div>
+                      )}
+                      {opp.savingsBytes !== undefined && opp.savingsBytes > 0 && (
                         <div style={{ ...styles.savingsBadge, background: '#eff6ff', color: '#1d4ed8' }}>
-                          ~{Math.round(opp.savingsBytes / 1024)}KB
+                          ~{Math.round(opp.savingsBytes / 1024)} KB
                         </div>
                       )}
                     </div>
@@ -261,10 +200,23 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
                     const icon = name === 'Good' ? '✅' : name === 'Needs Attention' ? '⚠️' : '🔧';
                     return <h3 key={i} style={styles.summarySection}>{icon} {name}</h3>;
                   }
-                  if (line.startsWith('- ')) {
-                    return <p key={i} style={styles.summaryBullet}>• {line.slice(2)}</p>;
+                  if (line.startsWith('- ') || line.startsWith('* ')) {
+                    const content = line.slice(2);
+                    return (
+                      <p key={i} style={styles.summaryBullet}>
+                        • <span dangerouslySetInnerHTML={{ __html: content
+                          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/`(.+?)`/g, '<code style="background:#e5e7eb;padding:0.1em 0.3em;border-radius:3px;font-size:0.85em">$1</code>')
+                        }} />
+                      </p>
+                    );
                   }
-                  return line ? <p key={i} style={{ margin: '0.2rem 0', fontSize: '0.875rem' }}>{line}</p> : null;
+                  return line ? <p key={i} style={{ margin: '0.2rem 0', fontSize: '0.875rem' }}
+                    dangerouslySetInnerHTML={{ __html: line
+                      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/`(.+?)`/g, '<code style="background:#e5e7eb;padding:0.1em 0.3em;border-radius:3px;font-size:0.85em">$1</code>')
+                    }}
+                  /> : null;
                 })}
               </div>
             </div>
@@ -307,7 +259,7 @@ const styles: Record<string, React.CSSProperties> = {
   rerunBtn: { background: '#f3f4f6', color: '#374151', padding: '0.4rem 0.9rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem' },
   errorBox: { background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1.25rem', color: '#991b1b' },
   scoresGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' },
-  scoreCard: { background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.25rem', textAlign: 'center' as const },
+  scoreCard: { background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.5rem', textAlign: 'center' as const },
   section: { marginBottom: '2rem' },
   sectionTitle: { margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: '#111827' },
   vitalsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' },
@@ -321,10 +273,4 @@ const styles: Record<string, React.CSSProperties> = {
   // Agent prompts
   agentSectionHeader: { marginBottom: '1rem' },
   agentSectionDesc: { margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#6b7280', maxWidth: '600px' },
-  agentCard: { border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#fff' },
-  agentCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', cursor: 'pointer', background: '#f9fafb', gap: '1rem' },
-  agentCardBody: { padding: '0 1.25rem 1.25rem', borderTop: '1px solid #e5e7eb' },
-  priorityBadge: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', background: '#2563eb', color: '#fff', borderRadius: '50%', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 },
-  promptPre: { margin: '1rem 0 0', padding: '1rem', background: '#1e1e2e', color: '#cdd6f4', borderRadius: '6px', fontSize: '0.8rem', lineHeight: 1.7, overflowX: 'auto' as const, whiteSpace: 'pre-wrap' as const, wordBreak: 'break-word' as const },
-  copyBtn: { padding: '0.3rem 0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '5px', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' as const },
 };

@@ -1,8 +1,14 @@
-// Shared TypeScript type definitions for the Weekly Lighthouse Monitoring System
-// Mirrors Prisma's generated types but adds domain-specific shapes
+export type Environment = "Production" | "Staging";
+export type AuditStatus = "success" | "failed";
 
-export type Environment = 'Production' | 'Staging';
-export type AuditStatus = 'success' | 'failed';
+export interface LighthouseAuditItem {
+  url?: string;
+  totalBytes?: number;
+  wastedBytes?: number;
+  wastedMs?: number;
+  cacheLifetimeMs?: number;
+  [key: string]: unknown;
+}
 
 export interface LighthouseAudit {
   id: string;
@@ -15,7 +21,7 @@ export interface LighthouseAudit {
     type: string;
     overallSavingsMs?: number;
     overallSavingsBytes?: number;
-    items?: unknown[];
+    items?: LighthouseAuditItem[];
   };
 }
 
@@ -28,7 +34,7 @@ export interface LighthouseResult {
     performance: { score: number | null };
     accessibility: { score: number | null };
     seo: { score: number | null };
-    'best-practices': { score: number | null };
+    "best-practices": { score: number | null };
   };
   audits: Record<string, LighthouseAudit>;
   runtimeError?: { code: string; message: string };
@@ -40,26 +46,36 @@ export interface PipelineContext {
   failedUrls: Array<{ projectId: string; url: string; error: string }>;
 }
 
+export interface OpportunityItem {
+  url: string;
+  totalBytes?: number;
+  wastedBytes?: number;
+  wastedMs?: number;
+  cacheLifetimeMs?: number;
+}
+
 export interface Opportunity {
   id: string;
   title: string;
   description: string;
   savingsMs?: number;
   savingsBytes?: number;
+  /** Top offending resources from Lighthouse details.items (max 3) */
+  items?: OpportunityItem[];
 }
 
-// Agent investigation prompt — one per top opportunity
 export interface AgentPrompt {
   opportunityId: string;
   opportunityTitle: string;
+  rank: number; // 1-based, ordered by descending estimated impact
   savingsMs: number | null;
   savingsBytes: number | null;
-  prompt: string; // full investigation prompt text, ready to paste into a code agent
+  prompt: string;
 }
 
 export interface AiSummaryOutput {
-  summary: string;            // human-readable Good/Needs Attention/Recommended Fixes
-  agentPrompts: AgentPrompt[]; // investigation prompts for code agents
+  summary: string;
+  agentPrompts: AgentPrompt[];
 }
 
 export interface ExtractedMetrics {
@@ -75,21 +91,52 @@ export interface ExtractedMetrics {
   opportunities: Opportunity[];
 }
 
-// Agent investigation prompt — one per top opportunity
-export interface AgentPrompt {
+export type MetricSituation =
+  | "CRITICAL"
+  | "POOR"
+  | "AT_RISK"
+  | "GOOD"
+  | "EXCELLENT";
+
+export type MetricClassification = Record<
+  "lcp" | "cls" | "inpOrTbt" | "fcp" | "speedIndex",
+  MetricSituation
+>;
+
+export interface PageTypeRule {
+  criticalVitals: ("lcp" | "cls" | "inpOrTbt" | "fcp" | "speedIndex")[];
+  primaryConcern: string;
+  scoreFloor: number;
+}
+
+export interface CausalRule {
+  affectsVitals: ("lcp" | "cls" | "inpOrTbt" | "fcp" | "speedIndex")[];
+  condition: (metrics: ExtractedMetrics) => boolean;
+  causalExplanation: (metrics: ExtractedMetrics) => string;
+}
+
+export interface ResolvedCausalRule {
   opportunityId: string;
-  opportunityTitle: string;
-  savingsMs: number | null;
-  savingsBytes: number | null;
-  prompt: string; // full investigation prompt text, ready to paste into a code agent
+  affectsVitals: ("lcp" | "cls" | "inpOrTbt" | "fcp" | "speedIndex")[];
+  causalExplanation: string;
 }
 
-export interface AiSummaryOutput {
-  summary: string;       // human-readable Good / Needs Attention / Recommended Fixes
-  agentPrompts: AgentPrompt[]; // investigation prompts sorted by estimated savings
+export interface DetectedSituation {
+  tag: string;
+  severity: "critical" | "warning" | "info";
+  message: string;
 }
 
-// API response types
+export interface RuleEngineOutput {
+  classifications: MetricClassification;
+  situations: DetectedSituation[];
+  resolvedCausalRules: ResolvedCausalRule[];
+}
+
+export type InvestigationStepFn = (
+  metrics: ExtractedMetrics,
+  situation: MetricSituation,
+) => string;
 
 export interface ApiError {
   error: string;
@@ -116,8 +163,6 @@ export interface ProjectResponse {
   updatedAt: string;
   urls: ProjectUrlResponse[];
 }
-
-// Report types
 
 export interface UrlReport {
   url: string;

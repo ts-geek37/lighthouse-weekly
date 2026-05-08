@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProjectResponse } from '@/types';
+import { AgentPrompt, ProjectResponse } from '@/types';
 import { ScoreBadge } from '@/components/ScoreBadge';
+import { AgentPromptCard } from '@/components/AgentPromptCard';
 
 interface AuditResult {
   auditRunId: string;
@@ -21,13 +22,7 @@ interface AuditResult {
     speedIndex: number | null;
   };
   opportunities: Array<{ id: string; title: string; description: string; savingsMs?: number; savingsBytes?: number }>;
-  agentPrompts: Array<{
-    opportunityId: string;
-    opportunityTitle: string;
-    savingsMs: number | null;
-    savingsBytes: number | null;
-    prompt: string;
-  }>;
+  agentPrompts: AgentPrompt[];
   aiSummary: string | null;
   error?: string;
 }
@@ -221,23 +216,28 @@ export default function RunAuditPage() {
                 <h3 style={styles.sectionTitle}>Core Web Vitals</h3>
                 <div style={styles.vitalsGrid}>
                   {[
-                    { label: 'LCP', value: result.coreWebVitals.lcp, unit: 'ms', good: 2500 },
-                    { label: 'CLS', value: result.coreWebVitals.cls, unit: '', good: 0.1 },
-                    { label: 'INP/TBT', value: result.coreWebVitals.inpOrTbt, unit: 'ms', good: 200 },
-                    { label: 'FCP', value: result.coreWebVitals.fcp, unit: 'ms', good: 1800 },
-                    { label: 'Speed Index', value: result.coreWebVitals.speedIndex, unit: 'ms', good: 3400 },
-                  ].map(({ label, value, unit, good }) => (
-                    <div key={label} style={styles.vitalCard}>
-                      <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>{label}</div>
-                      <div style={{
-                        fontWeight: 700,
-                        fontSize: '1.1rem',
-                        color: value === null ? '#9ca3af' : value <= good ? '#065f46' : '#991b1b',
-                      }}>
-                        {value !== null ? `${value}${unit}` : 'N/A'}
+                    { label: 'LCP', value: result.coreWebVitals.lcp, isCls: false, good: 2500, poor: 4000 },
+                    { label: 'CLS', value: result.coreWebVitals.cls, isCls: true, good: 0.1, poor: 0.25 },
+                    { label: 'INP/TBT', value: result.coreWebVitals.inpOrTbt, isCls: false, good: 200, poor: 500 },
+                    { label: 'FCP', value: result.coreWebVitals.fcp, isCls: false, good: 1800, poor: 3000 },
+                    { label: 'Speed Index', value: result.coreWebVitals.speedIndex, isCls: false, good: 3400, poor: 5800 },
+                  ].map(({ label, value, isCls, good, poor }) => {
+                    const status = value === null ? 'unknown' : value <= good ? 'good' : value <= poor ? 'needs-improvement' : 'poor';
+                    const color = status === 'good' ? '#065f46' : status === 'needs-improvement' ? '#92400e' : status === 'poor' ? '#991b1b' : '#9ca3af';
+                    const bg = status === 'good' ? '#d1fae5' : status === 'needs-improvement' ? '#fef3c7' : status === 'poor' ? '#fee2e2' : '#f3f4f6';
+                    const formatted = value === null ? 'N/A' : isCls ? value.toFixed(3) : value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${Math.round(value)}ms`;
+                    return (
+                      <div key={label} style={{ ...styles.vitalCard, background: bg }}>
+                        <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>{label}</div>
+                        <div style={{ fontWeight: 700, fontSize: '1.1rem', color }}>{formatted}</div>
+                        {status !== 'unknown' && (
+                          <div style={{ fontSize: '0.65rem', fontWeight: 600, color, marginTop: '0.2rem', textTransform: 'capitalize' as const }}>
+                            {status.replace('-', ' ')}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -249,8 +249,10 @@ export default function RunAuditPage() {
                     {result.opportunities.map(opp => (
                       <li key={opp.id} style={{ marginBottom: '0.4rem', fontSize: '0.9rem' }}>
                         <strong>{opp.title}</strong>
-                        {opp.savingsMs !== undefined && (
-                          <span style={{ color: '#6b7280', marginLeft: '0.5rem' }}>~{opp.savingsMs}ms savings</span>
+                        {opp.savingsMs !== undefined && opp.savingsMs > 0 && (
+                          <span style={{ color: '#6b7280', marginLeft: '0.5rem' }}>
+                            {opp.savingsMs >= 1000 ? `~${(opp.savingsMs / 1000).toFixed(1)}s` : `~${Math.round(opp.savingsMs)}ms`} savings
+                          </span>
                         )}
                       </li>
                     ))}
@@ -283,28 +285,9 @@ export default function RunAuditPage() {
                   <p style={{ margin: '-0.5rem 0 0.75rem', fontSize: '0.8rem', color: '#6b7280' }}>
                     Paste into Cursor, Copilot, or Claude to find root causes — not implement fixes.
                   </p>
-                  {result.agentPrompts.map((p, i) => {
-                    const savings = [
-                      p.savingsMs ? `~${p.savingsMs}ms` : '',
-                      p.savingsBytes ? `~${Math.round(p.savingsBytes / 1024)}KB` : '',
-                    ].filter(Boolean).join(' / ');
-                    return (
-                      <details key={p.opportunityId} style={styles.agentDetails} open={i === 0}>
-                        <summary style={styles.agentSummary}>
-                          <span style={styles.agentPriority}>#{i + 1}</span>
-                          <span style={{ fontWeight: 500 }}>{p.opportunityTitle}</span>
-                          {savings && <span style={{ color: '#6b7280', fontSize: '0.8rem', marginLeft: '0.5rem' }}>{savings}</span>}
-                          <button
-                            style={styles.copyBtnSmall}
-                            onClick={e => { e.preventDefault(); navigator.clipboard.writeText(p.prompt); }}
-                          >
-                            Copy
-                          </button>
-                        </summary>
-                        <pre style={styles.agentPre}>{p.prompt}</pre>
-                      </details>
-                    );
-                  })}
+                  {result.agentPrompts.map((p, i) => (
+                    <AgentPromptCard key={p.opportunityId} prompt={p} index={i} />
+                  ))}
                 </div>
               )}
             </>
@@ -341,11 +324,6 @@ const styles: Record<string, React.CSSProperties> = {
   section: { marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' },
   sectionTitle: { margin: '0 0 0.75rem', fontSize: '0.95rem', fontWeight: 600, color: '#374151' },
   vitalsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' },
-  vitalCard: { background: '#f9fafb', borderRadius: '6px', padding: '0.75rem', textAlign: 'center' as const },
+  vitalCard: { borderRadius: '6px', padding: '0.75rem', textAlign: 'center' as const },
   summaryBox: { background: '#f9fafb', borderRadius: '6px', padding: '1rem', fontSize: '0.875rem', lineHeight: 1.6 },
-  agentDetails: { border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '0.5rem', overflow: 'hidden' },
-  agentSummary: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.875rem 1rem', cursor: 'pointer', background: '#f9fafb', fontSize: '0.875rem', listStyle: 'none' },
-  agentPriority: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', background: '#2563eb', color: '#fff', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 },
-  agentPre: { margin: 0, padding: '1rem', background: '#1e1e2e', color: '#cdd6f4', fontSize: '0.78rem', lineHeight: 1.7, overflowX: 'auto' as const, whiteSpace: 'pre-wrap' as const, wordBreak: 'break-word' as const },
-  copyBtnSmall: { marginLeft: 'auto', padding: '0.2rem 0.6rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' },
 };

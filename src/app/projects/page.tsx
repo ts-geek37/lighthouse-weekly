@@ -118,19 +118,19 @@ export default function ProjectsPage() {
                   </span>
                 </td>
                 <td style={styles.td}>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' as const }}>
                     <Link href={`/projects/${project.id}/edit`} style={styles.actionBtn}>
                       Edit
                     </Link>
                     <button
                       onClick={() => toggleStatus(project.id, project.isActive)}
-                      style={{ ...styles.actionBtn, cursor: 'pointer', border: 'none' }}
+                      style={{ ...styles.actionBtn, cursor: 'pointer' }}
                     >
                       {project.isActive ? 'Disable' : 'Enable'}
                     </button>
                     <button
                       onClick={() => deleteProject(project.id)}
-                      style={{ ...styles.actionBtn, cursor: 'pointer', border: 'none', background: '#fee2e2', color: '#991b1b' }}
+                      style={{ ...styles.actionBtn, cursor: 'pointer', background: '#fee2e2', color: '#991b1b', borderColor: '#fca5a5' }}
                     >
                       Delete
                     </button>
@@ -148,13 +148,13 @@ export default function ProjectsPage() {
 const styles: Record<string, React.CSSProperties> = {
   container: { maxWidth: '1200px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' },
-  title: { margin: 0, fontSize: '1.75rem' },
-  button: { background: '#2563eb', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.9rem' },
-  empty: { textAlign: 'center', padding: '3rem', color: '#666' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: { textAlign: 'left', padding: '0.75rem', borderBottom: '2px solid #e5e7eb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' },
-  tr: { borderBottom: '1px solid #e5e7eb' },
-  td: { padding: '0.75rem', verticalAlign: 'top', fontSize: '0.9rem' },
-  badge: { display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: 500 },
-  actionBtn: { display: 'inline-block', padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', background: '#f3f4f6', color: '#374151', textDecoration: 'none' },
+  title: { margin: 0, fontSize: '1.75rem', fontWeight: 700, color: '#111827' },
+  button: { background: '#2563eb', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 },
+  empty: { textAlign: 'center' as const, padding: '3rem', color: '#6b7280' },
+  table: { width: '100%', borderCollapse: 'collapse' as const, background: '#fff', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' },
+  th: { textAlign: 'left' as const, padding: '0.75rem 1rem', borderBottom: '2px solid #e5e7eb', fontWeight: 600, fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase' as const, letterSpacing: '0.05em', background: '#f9fafb' },
+  tr: { borderBottom: '1px solid #f3f4f6' },
+  td: { padding: '0.875rem 1rem', verticalAlign: 'top' as const, fontSize: '0.9rem' },
+  badge: { display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 500 },
+  actionBtn: { display: 'inline-block', padding: '0.3rem 0.65rem', borderRadius: '5px', fontSize: '0.8rem', background: '#f3f4f6', color: '#374151', textDecoration: 'none', border: '1px solid #e5e7eb' },
 };

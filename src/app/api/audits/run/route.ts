@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { childLogger } from '@/lib/logger';
-import { runAudit } from '@/lib/audit/runner';
-import { extractMetrics } from '@/lib/audit/metrics-extractor';
-import { generateSummary } from '@/lib/audit/ai-summarizer';
-import { Opportunity, AgentPrompt } from '@/types';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { childLogger } from "@/lib/logger";
+import { runAudit } from "@/lib/audit/runner";
+import { extractMetrics } from "@/lib/audit/metrics-extractor";
+import { generateSummary } from "@/lib/audit/ai-summarizer";
+import { Opportunity, AgentPrompt, ExtractedMetrics } from "@/types";
 
 export interface RunAuditRequest {
   url: string;
@@ -15,7 +15,7 @@ export interface RunAuditRequest {
 export interface RunAuditResponse {
   auditRunId: string;
   url: string;
-  status: 'success' | 'failed';
+  status: "success" | "failed";
   performanceScore: number | null;
   accessibilityScore: number | null;
   seoScore: number | null;
@@ -47,20 +47,20 @@ export interface RunAuditResponse {
  * For local dev this is fine. For Vercel deployment, set maxDuration in next.config.ts.
  */
 export async function POST(request: NextRequest) {
-  const log = childLogger({ stage: 'on-demand-audit' });
+  const log = childLogger({ stage: "on-demand-audit" });
 
   let body: RunAuditRequest;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { url, projectUrlId, pageType = 'ad-hoc' } = body;
+  const { url, projectUrlId, pageType = "ad-hoc" } = body;
 
   // Validate URL
-  if (!url || typeof url !== 'string') {
-    return NextResponse.json({ error: 'url is required' }, { status: 422 });
+  if (!url || typeof url !== "string") {
+    return NextResponse.json({ error: "url is required" }, { status: 422 });
   }
 
   try {
@@ -70,10 +70,10 @@ export async function POST(request: NextRequest) {
   }
 
   const parsedUrl = new URL(url);
-  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
     return NextResponse.json(
-      { error: 'URL must use http or https protocol' },
-      { status: 422 }
+      { error: "URL must use http or https protocol" },
+      { status: 422 },
     );
   }
 
@@ -85,12 +85,15 @@ export async function POST(request: NextRequest) {
       select: { projectId: true },
     });
     if (!projectUrl) {
-      return NextResponse.json({ error: 'projectUrlId not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "projectUrlId not found" },
+        { status: 404 },
+      );
     }
     projectId = projectUrl.projectId;
   }
 
-  log.info({ url, projectUrlId, pageType }, 'Starting on-demand audit');
+  log.info({ url, projectUrlId, pageType }, "Starting on-demand audit");
 
   // ── Run Lighthouse audit ──────────────────────────────────────────────────
   const auditResult = await runAudit({ url, maxRetries: 1 }, log);
@@ -102,19 +105,25 @@ export async function POST(request: NextRequest) {
         data: {
           projectId,
           projectUrlId,
-          status: 'failed',
+          status: "failed",
         },
       });
 
       const response: RunAuditResponse = {
         auditRunId: failedRun.id,
         url,
-        status: 'failed',
+        status: "failed",
         performanceScore: null,
         accessibilityScore: null,
         seoScore: null,
         bestPracticesScore: null,
-        coreWebVitals: { lcp: null, cls: null, inpOrTbt: null, fcp: null, speedIndex: null },
+        coreWebVitals: {
+          lcp: null,
+          cls: null,
+          inpOrTbt: null,
+          fcp: null,
+          speedIndex: null,
+        },
         opportunities: [],
         aiSummary: null,
         agentPrompts: [],
@@ -127,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: `Audit failed: ${auditResult.error}` },
-      { status: 502 }
+      { status: 502 },
     );
   }
 
@@ -139,11 +148,44 @@ export async function POST(request: NextRequest) {
   let createdAt: string;
 
   if (projectUrlId && projectId) {
+    // Query the most recent prior successful run for trend-aware context.
+    // This MUST run before AuditRun.create so it returns the previous run, not the current one.
+    let previousMetrics: Partial<ExtractedMetrics> | undefined;
+    try {
+      const priorRun = await prisma.auditRun.findFirst({
+        where: { projectUrlId, status: "success" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          performanceScore: true,
+          lcp: true,
+          cls: true,
+          inpOrTbt: true,
+          fcp: true,
+          speedIndex: true,
+        },
+      });
+      if (priorRun) {
+        previousMetrics = {
+          performanceScore: priorRun.performanceScore,
+          lcp: priorRun.lcp,
+          cls: priorRun.cls,
+          inpOrTbt: priorRun.inpOrTbt,
+          fcp: priorRun.fcp,
+          speedIndex: priorRun.speedIndex,
+        };
+      }
+    } catch (err) {
+      log.warn(
+        { err: err instanceof Error ? err.message : String(err), projectUrlId },
+        "Failed to query prior run for trend context — proceeding without previousMetrics",
+      );
+    }
+
     const auditRun = await prisma.auditRun.create({
       data: {
         projectId,
         projectUrlId,
-        status: 'success',
+        status: "success",
         performanceScore: metrics.performanceScore,
         accessibilityScore: metrics.accessibilityScore,
         seoScore: metrics.seoScore,
@@ -160,19 +202,26 @@ export async function POST(request: NextRequest) {
     createdAt = auditRun.createdAt.toISOString();
 
     // Generate AI summary and update record
-    const summaryResult = await generateSummary({ url, pageType, metrics }, log);
-    const aiSummary = summaryResult.success ? summaryResult.output.summary : summaryResult.fallback;
-    const agentPrompts = summaryResult.success ? summaryResult.output.agentPrompts : [];
+    const summaryResult = await generateSummary(
+      { url, pageType, metrics, previousMetrics },
+      log,
+    );
+    const aiSummary = summaryResult.success
+      ? summaryResult.output.summary
+      : summaryResult.fallback;
+    const agentPrompts = summaryResult.success
+      ? summaryResult.output.agentPrompts
+      : [];
 
     await prisma.auditRun.update({
       where: { id: auditRunId },
-      data: { aiSummary, waZ: agentPrompts as any } as any,
+      data: { aiSummary, agentPromptsJson: agentPrompts as any },
     });
 
     const response: RunAuditResponse = {
       auditRunId,
       url,
-      status: 'success',
+      status: "success",
       performanceScore: metrics.performanceScore,
       accessibilityScore: metrics.accessibilityScore,
       seoScore: metrics.seoScore,
@@ -190,19 +239,27 @@ export async function POST(request: NextRequest) {
       createdAt,
     };
 
-    log.info({ auditRunId, url }, 'On-demand audit completed and saved');
+    log.info({ auditRunId, url }, "On-demand audit completed and saved");
     return NextResponse.json(response);
   }
 
   // Ad-hoc run (not linked to a project) — return results without saving
-  const summaryResult = await generateSummary({ url, pageType, metrics }, log);
-  const aiSummary = summaryResult.success ? summaryResult.output.summary : summaryResult.fallback;
-  const agentPrompts = summaryResult.success ? summaryResult.output.agentPrompts : [];
+  // No projectUrlId means no prior run to compare against; previousMetrics is always undefined.
+  const summaryResult = await generateSummary(
+    { url, pageType, metrics, previousMetrics: undefined },
+    log,
+  );
+  const aiSummary = summaryResult.success
+    ? summaryResult.output.summary
+    : summaryResult.fallback;
+  const agentPrompts = summaryResult.success
+    ? summaryResult.output.agentPrompts
+    : [];
 
   const response: RunAuditResponse = {
     auditRunId: `adhoc-${Date.now()}`,
     url,
-    status: 'success',
+    status: "success",
     performanceScore: metrics.performanceScore,
     accessibilityScore: metrics.accessibilityScore,
     seoScore: metrics.seoScore,
@@ -220,6 +277,6 @@ export async function POST(request: NextRequest) {
     createdAt: new Date().toISOString(),
   };
 
-  log.info({ url }, 'On-demand ad-hoc audit completed (not saved)');
+  log.info({ url }, "On-demand ad-hoc audit completed (not saved)");
   return NextResponse.json(response);
 }

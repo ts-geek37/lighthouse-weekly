@@ -15,12 +15,17 @@ function getScoreColor(score: number | null): { bg: string; text: string } {
 export function ScoreBadge({ score, size = 'md' }: ScoreBadgeProps) {
   const { bg, text } = getScoreColor(score);
   const fontSize = size === 'lg' ? '1.5rem' : size === 'sm' ? '0.75rem' : '1rem';
-  const padding = size === 'lg' ? '0.5rem 1rem' : size === 'sm' ? '0.15rem 0.4rem' : '0.25rem 0.6rem';
-  const minWidth = size === 'lg' ? '64px' : size === 'sm' ? '36px' : '48px';
+  const padding = size === 'lg' ? '0.5rem 1rem' : size === 'sm' ? '0.2rem 0.45rem' : '0.25rem 0.6rem';
+  const minWidth = size === 'lg' ? '64px' : size === 'sm' ? '38px' : '48px';
+
+  // Round to integer so we never show decimals like 97.3
+  const display = score !== null ? Math.round(score) : null;
 
   return (
     <span style={{
-      display: 'inline-block',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       background: bg,
       color: text,
       fontWeight: 700,
@@ -28,9 +33,10 @@ export function ScoreBadge({ score, size = 'md' }: ScoreBadgeProps) {
       padding,
       borderRadius: '6px',
       minWidth,
-      textAlign: 'center',
+      boxSizing: 'border-box',
+      lineHeight: 1,
     }}>
-      {score !== null ? score : 'N/A'}
+      {display !== null ? display : 'N/A'}
     </span>
   );
 }
