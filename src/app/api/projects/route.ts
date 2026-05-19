@@ -1,21 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Project } from '@prisma/client';
 import { validateProjectSubmission } from '@/lib/validation/project';
 import { ProjectResponse, Environment } from '@/types';
-
-interface PrismaProject {
-  id: string;
-  title: string;
-  description: string | null;
-  owner: string;
-  priority: string;
-  environment: string;
-  reportEmail: string | null;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  urls: PrismaProjectUrl[];
-}
 
 interface PrismaProjectUrl {
   id: string;
@@ -26,7 +13,7 @@ interface PrismaProjectUrl {
   createdAt: Date;
 }
 
-function mapProjectToResponse(project: PrismaProject): ProjectResponse {
+function mapProjectToResponse(project: Project & { urls: PrismaProjectUrl[] }): ProjectResponse {
   return {
     id: project.id,
     title: project.title,
