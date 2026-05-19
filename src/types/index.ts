@@ -88,6 +88,7 @@ export interface ExtractedMetrics {
   inpOrTbt: number | null;
   fcp: number | null;
   speedIndex: number | null;
+  ttfb: number | null;
   opportunities: Opportunity[];
 }
 
@@ -179,6 +180,7 @@ export interface UrlReport {
     inpOrTbt: number | null;
     fcp: number | null;
     speedIndex: number | null;
+    ttfb: number | null;
   };
   opportunities: Opportunity[];
   aiSummary: string | null;

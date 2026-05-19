@@ -51,6 +51,7 @@ export async function GET(
         inpOrTbt: run.inpOrTbt,
         fcp: run.fcp,
         speedIndex: run.speedIndex,
+        ttfb: run.ttfb,
       },
       opportunities,
       agentPrompts,

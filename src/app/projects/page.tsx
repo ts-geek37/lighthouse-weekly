@@ -83,7 +83,9 @@ export default function ProjectsPage() {
             {projects.map((project) => (
               <tr key={project.id} style={styles.tr}>
                 <td style={styles.td}>
-                  <strong>{project.title}</strong>
+                  <Link href={`/projects/${project.id}`} style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
+                    {project.title}
+                  </Link>
                   {project.description && (
                     <div style={{ fontSize: '0.85em', color: '#666' }}>{project.description}</div>
                   )}
@@ -126,6 +128,9 @@ export default function ProjectsPage() {
                 </td>
                 <td style={styles.td}>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' as const }}>
+                    <Link href={`/projects/${project.id}`} style={styles.actionBtn}>
+                      View
+                    </Link>
                     <Link href={`/projects/${project.id}/edit`} style={styles.actionBtn}>
                       Edit
                     </Link>
@@ -153,7 +158,7 @@ export default function ProjectsPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: '1200px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
+  container: { maxWidth: '1300px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' },
   title: { margin: 0, fontSize: '1.75rem', fontWeight: 700, color: '#111827' },
   button: { background: '#2563eb', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 },

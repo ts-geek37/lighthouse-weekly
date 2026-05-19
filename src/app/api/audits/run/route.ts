@@ -26,6 +26,7 @@ export interface RunAuditResponse {
     inpOrTbt: number | null;
     fcp: number | null;
     speedIndex: number | null;
+    ttfb: number | null;
   };
   opportunities: Opportunity[];
   aiSummary: string | null;
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest) {
           inpOrTbt: null,
           fcp: null,
           speedIndex: null,
+          ttfb: null,
         },
         opportunities: [],
         aiSummary: null,
@@ -195,6 +197,7 @@ export async function POST(request: NextRequest) {
         inpOrTbt: metrics.inpOrTbt,
         fcp: metrics.fcp,
         speedIndex: metrics.speedIndex,
+        ttfb: metrics.ttfb,
         opportunitiesJson: metrics.opportunities as any,
       },
     });
@@ -232,6 +235,7 @@ export async function POST(request: NextRequest) {
         inpOrTbt: metrics.inpOrTbt,
         fcp: metrics.fcp,
         speedIndex: metrics.speedIndex,
+        ttfb: metrics.ttfb,
       },
       opportunities: metrics.opportunities,
       aiSummary,
@@ -270,6 +274,7 @@ export async function POST(request: NextRequest) {
       inpOrTbt: metrics.inpOrTbt,
       fcp: metrics.fcp,
       speedIndex: metrics.speedIndex,
+      ttfb: metrics.ttfb,
     },
     opportunities: metrics.opportunities,
     aiSummary,

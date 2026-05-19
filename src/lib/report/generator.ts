@@ -61,6 +61,7 @@ export async function generateReport(
         inpOrTbt: run.inpOrTbt,
         fcp: run.fcp,
         speedIndex: run.speedIndex,
+        ttfb: (run as typeof run & { ttfb: number | null }).ttfb,
       },
       opportunities,
       aiSummary: run.aiSummary,

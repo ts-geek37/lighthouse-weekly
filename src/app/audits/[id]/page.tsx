@@ -6,6 +6,16 @@ import { ScoreBadge } from '@/components/ScoreBadge';
 import { AgentPrompt } from '@/types';
 import { AgentPromptCard } from '@/components/AgentPromptCard';
 
+// Weekly intelligence imports
+import { ScoreComparisonCards } from '@/components/weekly-intelligence/ScoreComparisonCards';
+import { VitalsComparisonTable } from '@/components/weekly-intelligence/VitalsComparisonTable';
+import { RegressionList } from '@/components/weekly-intelligence/RegressionList';
+import { OpportunityDiffList } from '@/components/weekly-intelligence/OpportunityDiffList';
+import { DeterministicRecommendationList } from '@/components/weekly-intelligence/DeterministicRecommendationList';
+import { AiInsightPanel } from '@/components/weekly-intelligence/AiInsightPanel';
+import { TrendChart } from '@/components/weekly-intelligence/TrendChart';
+import { ProjectComparisonReport } from '@/lib/comparison/comparisonTypes';
+
 interface AuditDetail {
   id: string;
   status: string;
@@ -64,6 +74,10 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
+  // Comparison report states
+  const [comparisonReport, setComparisonReport] = useState<ProjectComparisonReport | null>(null);
+  const [loadingComparison, setLoadingComparison] = useState(false);
+
   useEffect(() => {
     fetch(`/api/audits/${id}`)
       .then(r => {
@@ -74,6 +88,24 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
       .catch(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!audit?.projectId) return;
+    setLoadingComparison(true);
+    fetch(`/api/projects/${audit.projectId}/weekly-intelligence`)
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to fetch comparison');
+        return r.json();
+      })
+      .then(data => {
+        setComparisonReport(data);
+        setLoadingComparison(false);
+      })
+      .catch(err => {
+        console.error('Error fetching comparison report:', err);
+        setLoadingComparison(false);
+      });
+  }, [audit?.projectId]);
+
   if (loading) return <div style={styles.container}><p>Loading audit…</p></div>;
   if (notFound) return (
     <div style={styles.container}>
@@ -82,6 +114,8 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
     </div>
   );
   if (!audit) return null;
+
+  const activeUrlReport = comparisonReport?.urls.find(u => u.url === audit.url);
 
   const vitals = [
     { key: 'lcp', label: 'LCP', value: audit.coreWebVitals.lcp, desc: 'Largest Contentful Paint' },
@@ -223,24 +257,114 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
           )}
 
           {/* Agent Investigation Prompts */}
-          {audit.agentPrompts && audit.agentPrompts.length > 0 && (
-            <div style={styles.section}>
-              <div style={styles.agentSectionHeader}>
-                <div>
-                  <h2 style={{ ...styles.sectionTitle, margin: 0 }}>🤖 Agent Investigation Prompts</h2>
-                  <p style={styles.agentSectionDesc}>
-                    Paste these into your AI coding agent (Cursor, Copilot, Claude, etc.) to investigate root causes.
-                    The agent will search your codebase and report findings — not implement fixes.
-                  </p>
+          {(() => {
+            const promptsToDisplay = (activeUrlReport && activeUrlReport.hasEnoughData && activeUrlReport.agentPrompts && activeUrlReport.agentPrompts.length > 0)
+              ? activeUrlReport.agentPrompts
+              : audit.agentPrompts;
+
+            const isWeeklyPrompts = activeUrlReport && activeUrlReport.hasEnoughData && activeUrlReport.agentPrompts && activeUrlReport.agentPrompts.length > 0;
+
+            if (!promptsToDisplay || promptsToDisplay.length === 0) return null;
+
+            return (
+              <div id="agent-prompts-section" style={styles.section}>
+                <div style={styles.agentSectionHeader}>
+                  <div>
+                    <h2 style={{ ...styles.sectionTitle, margin: 0 }}>
+                      {isWeeklyPrompts ? '🤖 Comparative Performance Agent Prompts' : '🤖 Agent Investigation Prompts'}
+                    </h2>
+                    <p style={styles.agentSectionDesc}>
+                      {isWeeklyPrompts
+                        ? "These prompts are optimized for AI coding agents to investigate the performance regressions and optimization opportunities introduced relative to last week's baseline run."
+                        : "Paste these into your AI coding agent (Cursor, Copilot, Claude, etc.) to investigate root causes. The agent will search your codebase and report findings — not implement fixes."}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '0.75rem' }}>
+                  {promptsToDisplay.map((prompt, i) => (
+                    <AgentPromptCard key={prompt.opportunityId} prompt={prompt} index={i} />
+                  ))}
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '0.75rem' }}>
-                {audit.agentPrompts.map((prompt, i) => (
-                  <AgentPromptCard key={prompt.opportunityId} prompt={prompt} index={i} />
-                ))}
-              </div>
+            );
+          })()}
+
+          {/* Weekly Performance Intelligence Comparison Section */}
+          <div style={{ borderTop: '2px solid #e5e7eb', marginTop: '3rem', paddingTop: '2rem' }}>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ ...styles.sectionTitle, fontSize: '1.4rem', margin: 0 }}>📊 Weekly Performance Intelligence</h2>
+              <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
+                Comparing this audit run against previous baseline run to track regressions and improvements.
+              </p>
             </div>
-          )}
+
+            {loadingComparison ? (
+              <p style={{ color: '#6b7280' }}>Loading comparison details...</p>
+            ) : !activeUrlReport ? (
+              <p style={{ color: '#6b7280' }}>No comparison data available for this project/URL.</p>
+            ) : !activeUrlReport.hasEnoughData ? (
+              <div style={styles.insufficientDataCard}>
+                <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', fontWeight: 600 }}>Insufficient Historical Data</h3>
+                <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
+                  We need at least two successful audits on this URL to analyze changes and generate comparisons.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                {/* 1. Score comparisons */}
+                <ScoreComparisonCards
+                  metrics={{
+                    performanceScore: activeUrlReport.metrics!.performanceScore,
+                    accessibilityScore: activeUrlReport.metrics!.accessibilityScore,
+                    seoScore: activeUrlReport.metrics!.seoScore,
+                    bestPracticesScore: activeUrlReport.metrics!.bestPracticesScore,
+                  }}
+                />
+
+                {/* 2. Core Web Vitals & Sparkline */}
+                <div style={styles.twoColumnGrid}>
+                  <VitalsComparisonTable
+                    metrics={{
+                      lcp: activeUrlReport.metrics!.lcp,
+                      cls: activeUrlReport.metrics!.cls,
+                      inpOrTbt: activeUrlReport.metrics!.inpOrTbt,
+                      fcp: activeUrlReport.metrics!.fcp,
+                      ttfb: activeUrlReport.metrics!.ttfb,
+                    }}
+                  />
+                  <TrendChart historicalRuns={activeUrlReport.historicalRuns} />
+                </div>
+
+                {/* 3. AI Insight Panel */}
+                <AiInsightPanel
+                  projectId={audit.projectId}
+                  projectUrlId={activeUrlReport.projectUrlId}
+                  latestRunId={activeUrlReport.historicalRuns[activeUrlReport.historicalRuns.length - 1]?.id}
+                  previousRunId={activeUrlReport.historicalRuns[activeUrlReport.historicalRuns.length - 2]?.id}
+                  initialAiInsight={activeUrlReport.aiInsight}
+                />
+
+                {/* 4. Regressions / Improvements */}
+                <RegressionList
+                  regressions={activeUrlReport.regressions}
+                  improvements={activeUrlReport.improvements}
+                />
+
+                {/* 5. Opportunity Diff */}
+                <OpportunityDiffList
+                  opportunities={{
+                    new: activeUrlReport.opportunities.new,
+                    resolved: activeUrlReport.opportunities.resolved,
+                  }}
+                />
+
+                {/* 6. Recommendations */}
+                {activeUrlReport.recommendations && activeUrlReport.recommendations.length > 0 && (
+                  <DeterministicRecommendationList recommendations={activeUrlReport.recommendations} />
+                )}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -248,7 +372,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: '960px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
+  container: { maxWidth: '1100px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
   breadcrumb: { display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem', fontSize: '0.875rem' },
   back: { color: '#6b7280', textDecoration: 'none' },
   sep: { color: '#d1d5db' },
@@ -273,4 +397,15 @@ const styles: Record<string, React.CSSProperties> = {
   // Agent prompts
   agentSectionHeader: { marginBottom: '1rem' },
   agentSectionDesc: { margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#6b7280', maxWidth: '600px' },
+  insufficientDataCard: {
+    padding: "2rem",
+    backgroundColor: "#f9fafb",
+    border: "1px dashed #d1d5db",
+    borderRadius: "8px",
+  },
+  twoColumnGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
+    gap: "1.5rem",
+  },
 };

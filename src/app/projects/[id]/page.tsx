@@ -101,7 +101,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <Link href="/audits/new" style={styles.runBtn}>▶ Run Audit</Link>
           <Link href={`/projects/${id}/edit`} style={styles.editBtn}>Edit</Link>
           <button onClick={toggleStatus} style={styles.toggleBtn}>
@@ -235,6 +235,7 @@ const styles: Record<string, React.CSSProperties> = {
   title: { margin: '0 0 0.25rem', fontSize: '1.75rem' },
   metaBadge: { display: 'inline-block', background: '#f3f4f6', color: '#374151', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: 500 },
   runBtn: { background: '#2563eb', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 },
+  intelligenceBtn: { background: '#10b981', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 },
   editBtn: { background: '#f3f4f6', color: '#374151', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem' },
   toggleBtn: { background: '#f3f4f6', color: '#374151', padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontSize: '0.875rem', cursor: 'pointer' },
   section: { marginBottom: '2.5rem' },

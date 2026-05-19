@@ -19,6 +19,7 @@ import { generateReport } from '../src/lib/report/generator';
 import { writeJsonReport } from '../src/lib/report/json-writer';
 import { writeMarkdownReport } from '../src/lib/report/markdown-writer';
 import { sendReportEmail } from '../src/lib/mail';
+import { WeeklyIntelligenceService } from '../src/lib/comparison/intelligenceService';
 import { PipelineContext } from '../src/types';
 
 async function main(): Promise<void> {
@@ -115,6 +116,7 @@ async function main(): Promise<void> {
             inpOrTbt: metrics.inpOrTbt,
             fcp: metrics.fcp,
             speedIndex: metrics.speedIndex,
+            ttfb: metrics.ttfb,
             opportunitiesJson: metrics.opportunities as any,
           },
         });
@@ -178,7 +180,40 @@ async function main(): Promise<void> {
     // Send individual project reports via email if configured
     for (const projectReport of report.projects) {
       if (projectReport.reportEmail) {
-        await sendReportEmail(projectReport.reportEmail, projectReport, log);
+        log.info({ projectId: projectReport.projectId }, 'Generating performance intelligence for email report');
+        let comparisonReport = null;
+        try {
+          // 1. Generate/Fetch the weekly comparison report (creates cached snapshot)
+          comparisonReport = await WeeklyIntelligenceService.getComparisonReport(projectReport.projectId);
+
+          // 2. Pre-generate and cache the AI regression insights for each URL that has enough history
+          for (const urlReport of comparisonReport.urls) {
+            if (urlReport.hasEnoughData) {
+              const latestRun = urlReport.historicalRuns[urlReport.historicalRuns.length - 1];
+              const previousRun = urlReport.historicalRuns[urlReport.historicalRuns.length - 2];
+              if (latestRun && previousRun) {
+                log.info(
+                  { projectUrlId: urlReport.projectUrlId },
+                  'Pre-generating and caching AI performance insights'
+                );
+                // getOrGenerateAiInsight automatically computes and caches it in DB
+                const aiInsight = await WeeklyIntelligenceService.getOrGenerateAiInsight(
+                  urlReport.projectUrlId,
+                  latestRun.id,
+                  previousRun.id
+                );
+                urlReport.aiInsight = aiInsight;
+              }
+            }
+          }
+        } catch (err) {
+          log.error(
+            { err, projectId: projectReport.projectId },
+            'Failed to precompute weekly performance intelligence for email'
+          );
+        }
+
+        await sendReportEmail(projectReport.reportEmail, projectReport, log, comparisonReport || undefined);
       }
     }
   } catch (err) {

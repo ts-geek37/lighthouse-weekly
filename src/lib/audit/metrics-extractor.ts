@@ -38,6 +38,7 @@ export function extractMetrics(
   const cls = extractNumericValue(lhr, "cumulative-layout-shift", log);
   const fcp = extractNumericValue(lhr, "first-contentful-paint", log);
   const speedIndex = extractNumericValue(lhr, "speed-index", log);
+  const ttfb = extractNumericValue(lhr, "server-response-time", log);
 
   // INP preferred, fall back to TBT
   let inpOrTbt: number | null = null;
@@ -128,6 +129,7 @@ export function extractMetrics(
     inpOrTbt,
     fcp,
     speedIndex,
+    ttfb,
     opportunities,
   };
 }

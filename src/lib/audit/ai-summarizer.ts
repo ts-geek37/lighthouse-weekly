@@ -521,38 +521,35 @@ MANDATORY INSTRUCTIONS for this run:
       })()
     : "";
 
-  const systemPrompt = `You are a senior web performance engineer writing a precise, actionable internal report. You do not write generic advice. Every sentence must be grounded in the specific numbers provided.
+  const systemPrompt = `You are a senior staff web performance engineer and root-cause analysis (RCA) specialist writing a precise, actionable internal report.
+Your analysis must be grounded entirely in the provided metrics, classifications, situations, and opportunities. You must not hallucinate or change metrics.
+
+The AI must only provide insights that are NOT immediately obvious from the visible report data.
+Do NOT simply restate or narrate the numbers, scores, or opportunities that the user can already see. Instead, add engineering interpretation, causal reasoning, and cross-metric analysis.
 
 Write a report with EXACTLY these three sections. Do not add any other sections.
 
 ## Good
-- State each passing metric with its exact value and exact margin to threshold.
-- For scores ≥90: name the specific score and note what it means (e.g. "SEO 100 — all meta tags, canonical, and structured data present").
-- If a metric is AT_RISK, say so here.
+- State each passing metric with its exact value and exact margin to threshold. Avoid generic "everything is healthy" statements.
+- For scores ≥90: name the specific score and provide concrete engineering commentary on why it is high.
+- If a metric is AT_RISK, highlight it proactively.
 
 ## Needs Attention
-- For each opportunity flagged by Lighthouse: explain what type of resource is likely causing it based on the Lighthouse description, and which specific vital it threatens.
-- If an opportunity has no savings estimate, explain why it still matters (e.g. cache TTL affects repeat-visit performance, not first-load LCP).
-- Connect each opportunity to a specific metric: "render-blocking-resources has no savings estimate but directly threatens LCP (currently 446ms from threshold) and FCP on slower connections."
-- Do NOT skip opportunities just because all vitals are currently GOOD. Flag the risk.
+- Avoid generic Lighthouse definitions. Explain the causal relationships (e.g. how unused JS blocks the main thread and impacts TBT/INP, or how CSS render-blocking delays FCP/LCP).
+- Explain why opportunities with no savings estimate still matter (e.g. how cache TTL affects repeat visits but is invisible on first loads).
+- Connect opportunities to specific threatened metrics (e.g., "render-blocking resources directly threaten LCP (currently 446ms from threshold) on slower connections").
 
 ## Recommended Fixes
 - List in order of estimated impact (highest savings first).
-- For each fix: state the opportunity name, the savings, and the SPECIFIC action. Instead of naming exact source code files (which you cannot see), suggest what the developers should look for in their source code based on the bundled files provided. For example: "audit the 29KB of unused JS (190ms savings) — search for heavy imports or unshaken barrel files related to \`/_next/static/chunks/...\`".
-- For opportunities with no savings estimate: explain the concrete risk if left unaddressed.
-- If all vitals are GOOD: frame fixes as "protecting the current score" not "fixing a problem."
+- For each entry, specify the opportunity name, quantified savings, and a concrete, actionable codebase search or investigation step (e.g., specific dynamic imports, tree-shaking, font-display swapping).
 
 RECOMMENDED FIXES FORMAT (mandatory for every entry):
-  [Opportunity name] ([savings or "risk: <one-line risk>"]) — [specific action: suggest what to search for in the source code based on the flagged assets]
+  [Opportunity name] ([savings or "risk: <one-line risk>"]) — [specific action: suggest what codebase patterns to search for or check]
 
 GUIDELINES:
-- Use the provided METRIC CLASSIFICATIONS to determine severity language (CRITICAL → urgent, AT_RISK → proactive).
-- Every bullet must cite a specific number from the user data.
-- Maximum 5 bullets per section.
-- Instead of saying "all metrics are within good thresholds", mention what specific optimizations will protect the score.
+- Avoid generic Lighthouse explanations, metric narration, or filler observations.
 - Do not repeat the same point across sections.
-- Write for a senior engineer who will act on this immediately.
-- If an opportunity has no quantified savings, use the provided "Risk if unaddressed" rationale.`;
+- Write with a senior engineer's analytical tone.`;
 
   const userPrompt = `PAGE: ${url} (${pageType})
 
@@ -805,6 +802,10 @@ export async function generateSummary(
           { role: "user", content: prompts.user },
         ],
       });
+
+      console.log("Prompt tokens:", completion.usage?.prompt_tokens);
+      console.log("Completion tokens:", completion.usage?.completion_tokens);
+      console.log("Total tokens:", completion.usage?.total_tokens);
 
       const content = completion.choices[0]?.message?.content;
       if (!content) throw new Error("Groq returned empty content");

@@ -94,6 +94,7 @@ function buildMockMetrics() {
     inpOrTbt: 200,
     fcp: 1200,
     speedIndex: 3000,
+    ttfb: 150,
     opportunities: [],
   };
 }

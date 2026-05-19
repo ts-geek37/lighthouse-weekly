@@ -57,6 +57,7 @@ function buildTestInput(): AiSummaryInput {
     inpOrTbt: 200,
     fcp: 1200,
     speedIndex: 3000,
+    ttfb: 150,
     opportunities: [
       { id: 'unused-javascript', title: 'Remove unused JavaScript', description: 'Reduce JS', savingsMs: 500 },
       { id: 'render-blocking-resources', title: 'Eliminate render-blocking resources', description: 'Remove blocking', savingsMs: 300 },
@@ -341,6 +342,7 @@ describe('detectSituations', () => {
       inpOrTbt: 100,
       fcp: 800,
       speedIndex: 2000,
+      ttfb: 150,
       opportunities: [],
     };
   }
@@ -456,7 +458,7 @@ describe('resolveCausalRules', () => {
   function baseMetrics(): ExtractedMetrics {
     return {
       performanceScore: 90, accessibilityScore: 95, seoScore: 100, bestPracticesScore: 92,
-      lcp: 2000, cls: 0.05, inpOrTbt: 150, fcp: 1200, speedIndex: 2500, opportunities: [],
+      lcp: 2000, cls: 0.05, inpOrTbt: 150, fcp: 1200, speedIndex: 2500, ttfb: 150, opportunities: [],
     };
   }
 
@@ -520,6 +522,7 @@ describe('buildSummaryPrompt', () => {
         inpOrTbt: 150,
         fcp: 1200,
         speedIndex: 2500,
+        ttfb: 150,
         opportunities: [],
       },
     };
@@ -574,7 +577,7 @@ describe('getInvestigationSteps', () => {
   function baseMetrics(): ExtractedMetrics {
     return {
       performanceScore: 90, accessibilityScore: 95, seoScore: 100, bestPracticesScore: 92,
-      lcp: 2000, cls: 0.05, inpOrTbt: 600, fcp: 1200, speedIndex: 2500, opportunities: [],
+      lcp: 2000, cls: 0.05, inpOrTbt: 600, fcp: 1200, speedIndex: 2500, ttfb: 150, opportunities: [],
     };
   }
 
