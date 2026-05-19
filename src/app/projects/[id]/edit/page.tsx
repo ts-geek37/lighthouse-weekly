@@ -27,6 +27,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
   const [owner, setOwner] = useState('');
   const [priority, setPriority] = useState('medium');
   const [environment, setEnvironment] = useState('Production');
+  const [reportEmail, setReportEmail] = useState('');
   const [urls, setUrls] = useState<UrlEntry[]>([]);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         setOwner(data.owner);
         setPriority(data.priority);
         setEnvironment(data.environment);
+        setReportEmail(data.reportEmail || '');
         setUrls(
           data.urls.length > 0
             ? data.urls.map((u) => ({ url: u.url, pageType: u.pageType, priority: u.priority }))
@@ -84,6 +86,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
       owner,
       priority,
       environment,
+      reportEmail: reportEmail || undefined,
       urls: urls.filter((u) => u.url.trim() !== ''),
     };
 
@@ -146,6 +149,14 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
           <div style={styles.field}>
             <label style={styles.label}>Description</label>
             <textarea style={{ ...styles.input, height: '80px', resize: 'vertical' }} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" />
+          </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>Report Email(s)</label>
+            <input style={styles.input} type="text" value={reportEmail} onChange={(e) => setReportEmail(e.target.value)} placeholder="e.g. alerts@example.com, team@example.com (comma separated, optional)" />
+            <span style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+              Separate multiple email addresses with commas.
+            </span>
           </div>
 
           <div style={styles.row}>

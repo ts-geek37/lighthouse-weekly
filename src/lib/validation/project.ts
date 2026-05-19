@@ -69,9 +69,17 @@ export function validateProjectFields(fields: {
   }
 
   if (fields.reportEmail && fields.reportEmail.trim() !== '') {
+    const emails = fields.reportEmail.split(',').map((e) => e.trim()).filter((e) => e !== '');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(fields.reportEmail.trim())) {
-      errors.push('reportEmail must be a valid email address');
+    
+    if (emails.length === 0) {
+      errors.push('reportEmail cannot be empty when provided');
+    }
+
+    for (const email of emails) {
+      if (!emailRegex.test(email)) {
+        errors.push(`reportEmail contains an invalid email address: ${email}`);
+      }
     }
   }
 

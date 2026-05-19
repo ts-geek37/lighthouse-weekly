@@ -108,8 +108,11 @@ export default function NewProjectPage() {
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>Report Email</label>
-            <input style={styles.input} type="email" value={reportEmail} onChange={(e) => setReportEmail(e.target.value)} placeholder="e.g. alerts@example.com (optional)" />
+            <label style={styles.label}>Report Email(s)</label>
+            <input style={styles.input} type="text" value={reportEmail} onChange={(e) => setReportEmail(e.target.value)} placeholder="e.g. alerts@example.com, team@example.com (comma separated, optional)" />
+            <span style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+              Separate multiple email addresses with commas.
+            </span>
           </div>
 
           <div style={styles.row}>
