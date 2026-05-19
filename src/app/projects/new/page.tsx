@@ -22,6 +22,7 @@ export default function NewProjectPage() {
   const [owner, setOwner] = useState('');
   const [priority, setPriority] = useState('medium');
   const [environment, setEnvironment] = useState('Production');
+  const [reportEmail, setReportEmail] = useState('');
   const [urls, setUrls] = useState<UrlEntry[]>([{ url: '', pageType: 'homepage', priority: 'high' }]);
 
   function addUrl() {
@@ -49,6 +50,7 @@ export default function NewProjectPage() {
       owner,
       priority,
       environment,
+      reportEmail: reportEmail || undefined,
       urls: urls.filter((u) => u.url.trim() !== ''),
     };
 
@@ -103,6 +105,11 @@ export default function NewProjectPage() {
           <div style={styles.field}>
             <label style={styles.label}>Description</label>
             <textarea style={{ ...styles.input, height: '80px', resize: 'vertical' }} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" />
+          </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>Report Email</label>
+            <input style={styles.input} type="email" value={reportEmail} onChange={(e) => setReportEmail(e.target.value)} placeholder="e.g. alerts@example.com (optional)" />
           </div>
 
           <div style={styles.row}>

@@ -18,6 +18,7 @@ import { generateSummary } from '../src/lib/audit/ai-summarizer';
 import { generateReport } from '../src/lib/report/generator';
 import { writeJsonReport } from '../src/lib/report/json-writer';
 import { writeMarkdownReport } from '../src/lib/report/markdown-writer';
+import { sendReportEmail } from '../src/lib/mail';
 import { PipelineContext } from '../src/types';
 
 async function main(): Promise<void> {
@@ -172,6 +173,13 @@ async function main(): Promise<void> {
 
     if (config.markdownOutputEnabled) {
       await writeMarkdownReport(report, config.reportOutputDir, log);
+    }
+
+    // Send individual project reports via email if configured
+    for (const projectReport of report.projects) {
+      if (projectReport.reportEmail) {
+        await sendReportEmail(projectReport.reportEmail, projectReport, log);
+      }
     }
   } catch (err) {
     log.error({ err }, 'Failed to write report');

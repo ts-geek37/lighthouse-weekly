@@ -46,6 +46,7 @@ export function validateProjectFields(fields: {
   title?: string;
   owner?: string;
   environment?: string;
+  reportEmail?: string;
 }): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
@@ -67,6 +68,13 @@ export function validateProjectFields(fields: {
     errors.push("environment must be 'Production' or 'Staging'");
   }
 
+  if (fields.reportEmail && fields.reportEmail.trim() !== '') {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(fields.reportEmail.trim())) {
+      errors.push('reportEmail must be a valid email address');
+    }
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
@@ -77,12 +85,14 @@ export function validateProjectSubmission(data: {
   title?: string;
   owner?: string;
   environment?: string;
+  reportEmail?: string;
   urls?: Array<{ url: string }>;
 }): { valid: boolean; errors: string[] } {
   const fieldResult = validateProjectFields({
     title: data.title,
     owner: data.owner,
     environment: data.environment,
+    reportEmail: data.reportEmail,
   });
 
   const urlStrings = (data.urls ?? []).map((u) => u.url);

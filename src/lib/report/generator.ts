@@ -73,6 +73,7 @@ export async function generateReport(
     projectTitle: project.title,
     owner: project.owner,
     environment: project.environment as Environment,
+    reportEmail: project.reportEmail,
     urls: urlReports,
   }));
 

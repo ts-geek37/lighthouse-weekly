@@ -88,7 +88,14 @@ export default function ProjectsPage() {
                     <div style={{ fontSize: '0.85em', color: '#666' }}>{project.description}</div>
                   )}
                 </td>
-                <td style={styles.td}>{project.owner}</td>
+                <td style={styles.td}>
+                  {project.owner}
+                  {project.reportEmail && (
+                    <div style={{ fontSize: '0.85em', color: '#666', marginTop: '0.25rem' }}>
+                      ✉️ {project.reportEmail}
+                    </div>
+                  )}
+                </td>
                 <td style={styles.td}>
                   <span style={{
                     ...styles.badge,

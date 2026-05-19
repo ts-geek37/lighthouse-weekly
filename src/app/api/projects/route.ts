@@ -10,6 +10,7 @@ interface PrismaProject {
   owner: string;
   priority: string;
   environment: string;
+  reportEmail: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +34,7 @@ function mapProjectToResponse(project: PrismaProject): ProjectResponse {
     owner: project.owner,
     priority: project.priority,
     environment: project.environment as Environment,
+    reportEmail: project.reportEmail,
     isActive: project.isActive,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
@@ -80,6 +82,7 @@ export async function POST(request: NextRequest) {
           owner: body.owner,
           priority: body.priority || 'medium',
           environment: body.environment,
+          reportEmail: body.reportEmail || null,
         },
       });
 

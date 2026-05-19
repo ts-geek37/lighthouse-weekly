@@ -383,7 +383,7 @@ function margin(key: keyof typeof THRESHOLDS, value: number | null): string {
 export function buildSummaryPrompt(
   input: AiSummaryInput,
   ruleOutput: RuleEngineOutput,
-): string {
+): { system: string; user: string } {
   const { url, pageType, metrics } = input;
   const { classifications, situations } = ruleOutput;
 
@@ -521,9 +521,40 @@ MANDATORY INSTRUCTIONS for this run:
       })()
     : "";
 
-  return `You are a senior web performance engineer writing a precise, actionable internal report. You do not write generic advice. Every sentence must be grounded in the specific numbers below.
+  const systemPrompt = `You are a senior web performance engineer writing a precise, actionable internal report. You do not write generic advice. Every sentence must be grounded in the specific numbers provided.
 
-PAGE: ${url} (${pageType})
+Write a report with EXACTLY these three sections. Do not add any other sections.
+
+## Good
+- State each passing metric with its exact value and exact margin to threshold.
+- For scores ≥90: name the specific score and note what it means (e.g. "SEO 100 — all meta tags, canonical, and structured data present").
+- If a metric is AT_RISK, say so here.
+
+## Needs Attention
+- For each opportunity flagged by Lighthouse: explain what type of resource is likely causing it based on the Lighthouse description, and which specific vital it threatens.
+- If an opportunity has no savings estimate, explain why it still matters (e.g. cache TTL affects repeat-visit performance, not first-load LCP).
+- Connect each opportunity to a specific metric: "render-blocking-resources has no savings estimate but directly threatens LCP (currently 446ms from threshold) and FCP on slower connections."
+- Do NOT skip opportunities just because all vitals are currently GOOD. Flag the risk.
+
+## Recommended Fixes
+- List in order of estimated impact (highest savings first).
+- For each fix: state the opportunity name, the savings, and the SPECIFIC action. Instead of naming exact source code files (which you cannot see), suggest what the developers should look for in their source code based on the bundled files provided. For example: "audit the 29KB of unused JS (190ms savings) — search for heavy imports or unshaken barrel files related to \`/_next/static/chunks/...\`".
+- For opportunities with no savings estimate: explain the concrete risk if left unaddressed.
+- If all vitals are GOOD: frame fixes as "protecting the current score" not "fixing a problem."
+
+RECOMMENDED FIXES FORMAT (mandatory for every entry):
+  [Opportunity name] ([savings or "risk: <one-line risk>"]) — [specific action: suggest what to search for in the source code based on the flagged assets]
+
+GUIDELINES:
+- Use the provided METRIC CLASSIFICATIONS to determine severity language (CRITICAL → urgent, AT_RISK → proactive).
+- Every bullet must cite a specific number from the user data.
+- Maximum 5 bullets per section.
+- Instead of saying "all metrics are within good thresholds", mention what specific optimizations will protect the score.
+- Do not repeat the same point across sections.
+- Write for a senior engineer who will act on this immediately.
+- If an opportunity has no quantified savings, use the provided "Risk if unaddressed" rationale.`;
+
+  const userPrompt = `PAGE: ${url} (${pageType})
 
 LIGHTHOUSE SCORES:
 - Performance: ${scoreLabel(metrics.performanceScore)}
@@ -540,44 +571,9 @@ ${situationsBlock}${falseGreenDirective}
 OPPORTUNITIES FLAGGED BY LIGHTHOUSE (in order of estimated impact):
 ${oppsText}
 
----
+Note: ${situations.length > 0 ? "The SYSTEM CONCLUSIONS above are pre-verified facts. Do not contradict them." : "Metric classifications are pre-verified facts. Do not contradict them."}`;
 
-Write a report with EXACTLY these three sections. Do not add any other sections.
-
-## Good
-- State each passing metric with its exact value and exact margin to threshold.
-- For scores ≥90: name the specific score and note what it means (e.g. "SEO 100 — all meta tags, canonical, and structured data present").
-- Do not write generic praise. If a metric is AT_RISK, say so here.
-
-## Needs Attention
-- For each opportunity flagged by Lighthouse: explain what type of resource is likely causing it based on the Lighthouse description, and which specific vital it threatens.
-- If an opportunity has no savings estimate, explain why it still matters (e.g. cache TTL affects repeat-visit performance, not first-load LCP).
-- Connect each opportunity to a specific metric: "render-blocking-resources has no savings estimate but directly threatens LCP (currently 446ms from threshold) and FCP on slower connections."
-- Do NOT skip opportunities just because all vitals are currently GOOD. Flag the risk.
-
-## Recommended Fixes
-- List in order of estimated impact (highest savings first).
-- For each fix: state the opportunity name, the savings, and the SPECIFIC action — not "reduce unused JS" but "audit the 29KB of unused JS (190ms savings) — check for full lodash/moment imports or unshaken barrel files in your bundle."
-- For opportunities with no savings estimate: explain the concrete risk if left unaddressed (e.g. "cache TTL — static assets served without long-lived Cache-Control headers means every repeat visitor re-downloads JS/CSS on each visit").
-- If all vitals are GOOD: frame fixes as "protecting the current score" not "fixing a problem."
-
-RECOMMENDED FIXES FORMAT (mandatory for every entry in ## Recommended Fixes):
-  [Opportunity name] ([savings or "risk: <one-line risk>"]) — [specific action: name the file, import, or config to change]
-
-FORBIDDEN phrases (will be rejected):
-  - "reduce unused JavaScript" without naming a specific import or file
-  - "optimize images" without naming a specific format, attribute, or pipeline step
-  - "improve caching" without naming a specific header or asset type
-  - "no quantified savings" — replace with the concrete risk from the ZERO-SAVINGS RISK block below
-
-RULES:
-${situations.length > 0 ? "- The SYSTEM CONCLUSIONS above are pre-verified facts. Do not contradict them.\n" : "- Metric classifications are pre-verified facts. Do not contradict them.\n"}- Use the METRIC CLASSIFICATIONS to determine severity language (CRITICAL → urgent, AT_RISK → proactive).
-- Every bullet must cite a specific number from the data above.
-- Maximum 5 bullets per section.
-- Do not write "all metrics are within good thresholds" — that is not actionable.
-- Do not repeat the same point across sections.
-- Write for a senior engineer who will act on this immediately.
-- Zero-savings opportunities MUST appear in ## Needs Attention and ## Recommended Fixes with their "Risk if unaddressed" rationale. The phrase "no quantified savings" is FORBIDDEN.`;
+  return { system: systemPrompt, user: userPrompt };
 }
 
 const VITAL_META: Record<
@@ -691,27 +687,27 @@ ${savings ? `**Estimated savings if fixed:** ${savings}` : ""}${contextBlock}
 
 ## Your task
 
-You are a performance investigator. Do NOT implement any fixes yet.
+You are an expert performance investigator. Do NOT implement any fixes yet.
 
 Your job is to:
-1. Search this codebase to find the root cause of this issue
-2. Identify exactly which files, components, or configuration are responsible
-3. Explain what is causing the problem
-4. Describe what a fix would look like — but do not write the code
+1. Search this codebase to find the root cause of this issue.
+2. Identify exactly which files, components, or configurations are responsible.
+3. Explain what is causing the problem and why it is affecting performance.
+4. Describe what a fix would look like, but do not write the code.
 
 ## Investigation steps
 ${steps}
 
 ## What to report back
 
-Structure your response as:
-- **Root cause found:** [yes/no/partial]
-- **Location:** [file paths and line numbers if found]
-- **What's happening:** [specific explanation of why this is slow]
-- **What would fix it:** [description of the change needed, no code]
-- **Confidence:** [high/medium/low] — how certain are you this is the actual cause
+Provide a conversational, analytical summary of your findings. Rather than just filling out a strict form, walk me through what you discovered:
+- Did you find the root cause?
+- Where is it located?
+- What exactly is happening?
+- How should we fix it?
+- How confident are you in this assessment?
 
-Do not guess. If you cannot find the root cause, say so and explain what additional information would help.`;
+If you cannot find the root cause, please explain what you checked and what additional information or commands would help.`;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -788,7 +784,7 @@ export async function generateSummary(
   };
 
   // ── Summary prompt ────────────────────────────────────────────────────────
-  const summaryPrompt = buildSummaryPrompt(input, ruleOutput);
+  const prompts = buildSummaryPrompt(input, ruleOutput);
   let summaryText = "";
 
   for (let attempt = 0; attempt <= 1; attempt++) {
@@ -803,8 +799,11 @@ export async function generateSummary(
 
       const completion = await groq.chat.completions.create({
         model: GROQ_MODEL,
-        temperature: 0,
-        messages: [{ role: "user", content: summaryPrompt }],
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: prompts.system },
+          { role: "user", content: prompts.user },
+        ],
       });
 
       const content = completion.choices[0]?.message?.content;

@@ -111,7 +111,7 @@ describe('generateSummary', () => {
       }
     });
 
-    it('calls Groq API with temperature: 0', async () => {
+    it('calls Groq API with temperature: 0.2', async () => {
       mockCreate.mockResolvedValue({
         choices: [{ message: { content: buildValidSummary() } }],
       });
@@ -119,7 +119,7 @@ describe('generateSummary', () => {
       await generateSummary(buildTestInput(), mockLog);
 
       expect(mockCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ temperature: 0 })
+        expect.objectContaining({ temperature: 0.2 })
       );
     });
 
@@ -532,9 +532,9 @@ describe('buildSummaryPrompt', () => {
       resolvedCausalRules: [],
     };
     const prompt = buildSummaryPrompt(baseInput(), ruleOutput);
-    expect(prompt).toContain('SYSTEM CONCLUSIONS');
-    expect(prompt).toContain('SCORE_BELOW_FLOOR');
-    expect(prompt).toContain('[CRITICAL]');
+    expect(prompt.user).toContain('SYSTEM CONCLUSIONS');
+    expect(prompt.user).toContain('SCORE_BELOW_FLOOR');
+    expect(prompt.user).toContain('[CRITICAL]');
   });
 
   it('does NOT contain SYSTEM CONCLUSIONS block when situations are empty', () => {
@@ -544,7 +544,7 @@ describe('buildSummaryPrompt', () => {
       resolvedCausalRules: [],
     };
     const prompt = buildSummaryPrompt(baseInput(), ruleOutput);
-    expect(prompt).not.toContain('SYSTEM CONCLUSIONS');
+    expect(prompt.user).not.toContain('SYSTEM CONCLUSIONS');
   });
 
   it('contains METRIC CLASSIFICATIONS block', () => {
@@ -554,7 +554,7 @@ describe('buildSummaryPrompt', () => {
       resolvedCausalRules: [],
     };
     const prompt = buildSummaryPrompt(baseInput(), ruleOutput);
-    expect(prompt).toContain('METRIC CLASSIFICATIONS');
+    expect(prompt.user).toContain('METRIC CLASSIFICATIONS');
   });
 
   it('contains instruction not to contradict SYSTEM CONCLUSIONS', () => {
@@ -564,7 +564,7 @@ describe('buildSummaryPrompt', () => {
       resolvedCausalRules: [],
     };
     const prompt = buildSummaryPrompt(baseInput(), ruleOutput);
-    expect(prompt).toContain('pre-verified facts');
+    expect(prompt.user).toContain('pre-verified facts');
   });
 });
 

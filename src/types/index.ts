@@ -158,6 +158,7 @@ export interface ProjectResponse {
   owner: string;
   priority: string;
   environment: Environment;
+  reportEmail: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -188,6 +189,7 @@ export interface ProjectReport {
   projectTitle: string;
   owner: string;
   environment: Environment;
+  reportEmail: string | null;
   urls: UrlReport[];
 }
 
