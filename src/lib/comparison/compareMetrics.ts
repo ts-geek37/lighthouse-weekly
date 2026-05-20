@@ -2,11 +2,11 @@ import { MetricChange, MetricNormalizationConfig } from "./comparisonTypes";
 import { METRIC_CONFIG } from "./config";
 import { classifySeverity } from "./classifySeverity";
 
-export function compareMetric(
+export const compareMetric = (
   key: string,
   previous: number | null | undefined,
   current: number | null | undefined
-): MetricChange {
+): MetricChange => {
   const config = METRIC_CONFIG[key];
   if (!config) {
     throw new Error(`Metric configuration not found for: ${key}`);
@@ -72,17 +72,15 @@ export function compareMetric(
     status,
     severity,
   };
-}
+};
 
-export function compareAllMetrics(
+export const compareAllMetrics = (
   prev: Record<string, number | null> | null | undefined,
   curr: Record<string, number | null>
-): Record<string, MetricChange> {
-  const result: Record<string, MetricChange> = {};
-  
-  for (const key of Object.keys(METRIC_CONFIG)) {
-    result[key] = compareMetric(key, prev?.[key], curr[key]);
-  }
-
-  return result;
-}
+): Record<string, MetricChange> =>
+  Object.fromEntries(
+    Object.keys(METRIC_CONFIG).map(key => [
+      key,
+      compareMetric(key, prev?.[key], curr[key]),
+    ]),
+  );

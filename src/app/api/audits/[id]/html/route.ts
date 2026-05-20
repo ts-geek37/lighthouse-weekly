@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-/**
- * GET /api/audits/:id/html
- * Returns the raw HTML Lighthouse report directly with text/html content type.
- * Useful for embedding the official Lighthouse report in an iframe.
- */
-export async function GET(
+export const GET = async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
   try {
     const run = await prisma.auditRun.findUnique({
@@ -25,12 +20,10 @@ export async function GET(
       return new NextResponse("HTML report not available for this audit", { status: 404 });
     }
 
-    // Return the raw HTML string with proper headers
     return new NextResponse(run.htmlReport, {
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        // Security headers for iframe
         "Content-Security-Policy": "frame-ancestors 'self'",
         "X-Frame-Options": "SAMEORIGIN",
       },
@@ -39,4 +32,4 @@ export async function GET(
     console.error(`GET /api/audits/${id}/html error:`, error);
     return new NextResponse("Internal server error", { status: 500 });
   }
-}
+};

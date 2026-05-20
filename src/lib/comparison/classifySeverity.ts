@@ -1,11 +1,14 @@
 import { MetricNormalizationConfig } from "./comparisonTypes";
 
-export function classifySeverity(
+type MetricStatus = "improved" | "regressed" | "stable" | "critical";
+type Confidence = "low" | "medium" | "high";
+
+export const classifySeverity = (
   config: MetricNormalizationConfig,
   prevVal: number,
   currVal: number,
-  status: "improved" | "regressed" | "stable" | "critical"
-): "low" | "medium" | "high" {
+  status: MetricStatus,
+): Confidence => {
   if (status === "stable" || status === "improved") {
     return "low";
   }
@@ -34,13 +37,13 @@ export function classifySeverity(
     return "medium";
   }
   return "low";
-}
+};
 
-export function calculateConfidence(
+export const calculateConfidence = (
   metric: string,
   delta: number,
-  hasMatchingOpportunity: boolean
-): "low" | "medium" | "high" {
+  hasMatchingOpportunity: boolean,
+): Confidence => {
   const absDelta = Math.abs(delta);
 
   // Define noise thresholds for each metric
@@ -86,4 +89,4 @@ export function calculateConfidence(
   }
 
   return hasMatchingOpportunity ? "high" : "medium";
-}
+};

@@ -156,10 +156,10 @@ const ZERO_SAVINGS_RISK_RATIONALE: Record<string, string> = {
     "unused CSS bloats the render-blocking stylesheet payload, delaying FCP on first load",
 };
 
-export function resolveCausalRules(
+export const resolveCausalRules = (
   metrics: ExtractedMetrics,
   opportunities: Opportunity[],
-): ResolvedCausalRule[] {
+): ResolvedCausalRule[] => {
   const resolved: ResolvedCausalRule[] = [];
   for (const opp of opportunities) {
     const rule = OPPORTUNITY_CAUSAL_RULES[opp.id];
@@ -175,11 +175,11 @@ export function resolveCausalRules(
   return resolved;
 }
 
-export function detectSituations(
+export const detectSituations =(
   metrics: ExtractedMetrics,
   pageType: string,
   opportunities: Opportunity[],
-): DetectedSituation[] {
+): DetectedSituation[] => {
   const situations: DetectedSituation[] = [];
   const pageRule = PAGE_TYPE_RULES[pageType] ?? PAGE_TYPE_RULES["default"];
   const classifications = classifyAllMetrics(metrics);
@@ -256,10 +256,10 @@ export function detectSituations(
   return situations;
 }
 
-export function classifyMetric(
+export const classifyMetric =(
   key: keyof typeof THRESHOLDS,
   value: number | null,
-): MetricSituation {
+): MetricSituation => {
   if (value === null) return "GOOD";
   const t = THRESHOLDS[key];
   if (value > t.poor) return "CRITICAL";
@@ -269,9 +269,9 @@ export function classifyMetric(
   return "GOOD";
 }
 
-export function classifyAllMetrics(
+export const classifyAllMetrics = (
   metrics: ExtractedMetrics,
-): MetricClassification {
+): MetricClassification => {
   return {
     lcp: classifyMetric("lcp", metrics.lcp),
     cls: classifyMetric("cls", metrics.cls),
@@ -281,12 +281,12 @@ export function classifyAllMetrics(
   };
 }
 
-function scoreLabel(score: number | null): string {
+const scoreLabel = (score: number | null): string => {
   if (score === null) return "N/A";
   if (score >= 90) return `${score}/100 (Good)`;
   if (score >= 50) return `${score}/100 (Needs Improvement)`;
   return `${score}/100 (Poor)`;
-}
+};
 
 const INVESTIGATION_STEPS: Record<string, InvestigationStepFn> = {
   "unused-javascript": (metrics, situation) => {
@@ -349,11 +349,11 @@ Report: list each asset type with its current TTL, whether it has content-hash, 
 Report: list each source of unused CSS with file location, estimated size, and why it's unused`,
 };
 
-export function getInvestigationSteps(
+export const getInvestigationSteps = (
   opportunityId: string,
   metrics: ExtractedMetrics,
   situation: MetricSituation,
-): string {
+): string => {
   const fn = INVESTIGATION_STEPS[opportunityId];
   if (fn) return fn(metrics, situation);
   return `
@@ -364,7 +364,7 @@ export function getInvestigationSteps(
 Report: describe what you found, where it is, and what change would address it`;
 }
 
-function margin(key: keyof typeof THRESHOLDS, value: number | null): string {
+const margin = (key: keyof typeof THRESHOLDS, value: number | null): string => {
   if (value === null) return "";
   const t = THRESHOLDS[key];
   const unit = t.unit;
@@ -378,12 +378,12 @@ function margin(key: keyof typeof THRESHOLDS, value: number | null): string {
   return diff > 0
     ? ` (${diff}${unit} below the ${t.good}${unit} good threshold)`
     : ` (${Math.abs(diff)}${unit} above the ${t.good}${unit} good threshold — FAILING)`;
-}
+};
 
-export function buildSummaryPrompt(
+export const buildSummaryPrompt = (
   input: AiSummaryInput,
   ruleOutput: RuleEngineOutput,
-): { system: string; user: string } {
+): { system: string; user: string } => {
   const { url, pageType, metrics } = input;
   const { classifications, situations } = ruleOutput;
 
@@ -647,8 +647,8 @@ ${longTasksText}
 LIGHTHOUSE SCORES:
 - Performance: ${scoreLabel(metrics.performanceScore)}
 - Accessibility: ${scoreLabel(metrics.accessibilityScore)}
-- SEO: ${scoreLabel(metrics.seoScore)}
 - Best Practices: ${scoreLabel(metrics.bestPracticesScore)}
+- SEO: ${scoreLabel(metrics.seoScore)}
 
 CORE WEB VITALS:
 ${vitalsText}
@@ -684,18 +684,17 @@ const ALL_VITALS = [
   "speedIndex",
 ] as const satisfies ReadonlyArray<keyof typeof VITAL_META>;
 
-function buildTrendLines(
+const buildTrendLines = (
   vitals: ReadonlyArray<"lcp" | "cls" | "inpOrTbt" | "fcp" | "speedIndex">,
   metrics: ExtractedMetrics,
   previousMetrics: Partial<ExtractedMetrics>,
-): string {
+): string => {
   const lines: string[] = [];
 
   for (const vital of vitals) {
     const current = metrics[vital];
     const previous = previousMetrics[vital];
 
-    // Skip if either value is null/undefined
     if (current === null || current === undefined) continue;
     if (previous === null || previous === undefined) continue;
 
@@ -703,14 +702,12 @@ function buildTrendLines(
 
     let deltaRatio: number;
     if (previous === 0) {
-      // Guard against divide-by-zero
-      if (current === 0) continue; // no change
-      deltaRatio = 1; // treat as 100% change
+      if (current === 0) continue;
+      deltaRatio = 1;
     } else {
       deltaRatio = Math.abs(current - previous) / previous;
     }
 
-    // Only emit trend line if change exceeds 10%
     if (deltaRatio <= 0.1) continue;
 
     const deltaPercent = Math.round(deltaRatio * 100);
@@ -725,9 +722,9 @@ function buildTrendLines(
 
   if (lines.length === 0) return "";
   return `\n**Trend (vs previous run):**\n${lines.join("\n")}`;
-}
+};
 
-function buildAgentPrompt(
+const buildAgentPrompt = (
   url: string,
   pageType: string,
   opp: Opportunity,
@@ -736,7 +733,7 @@ function buildAgentPrompt(
   steps: string,
   rank: number,
   previousMetrics?: Partial<ExtractedMetrics>,
-): string {
+): string => {
   const savings = [
     opp.savingsMs ? `~${opp.savingsMs}ms load time` : "",
     opp.savingsBytes
@@ -797,16 +794,16 @@ Provide a conversational, analytical summary of your findings. Rather than just 
 - How confident are you in this assessment?
 
 If you cannot find the root cause, please explain what you checked and what additional information or commands would help.`;
-}
+};
 
-function sleep(ms: number): Promise<void> {
+const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
+};
 
-export async function generateSummary(
+export const generateSummary = async(
   input: AiSummaryInput,
   log: Logger,
-): Promise<AiSummaryResult> {
+): Promise<AiSummaryResult> => {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
   // ── Rule engine ───────────────────────────────────────────────────────────

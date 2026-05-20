@@ -1,5 +1,3 @@
-import React from "react";
-
 interface RunData {
   id: string;
   createdAt: Date | string;
@@ -13,167 +11,95 @@ interface TrendChartProps {
   historicalRuns: RunData[];
 }
 
-export function TrendChart({ historicalRuns }: TrendChartProps) {
-  if (historicalRuns.length < 2) {
+type TrendMetricKey = "performanceScore" | "lcp" | "cls" | "inpOrTbt";
+
+interface SparklineConfig {
+  title: string;
+  key: TrendMetricKey;
+  color: string;
+  formatter: (value: number) => string;
+}
+
+const sparklineConfigs: SparklineConfig[] = [
+  { title: "Performance Score", key: "performanceScore", color: "#2563eb", formatter: value => `${Math.round(value)}` },
+  { title: "Largest Contentful Paint", key: "lcp", color: "#ea580c", formatter: value => `${Math.round(value)}ms` },
+  { title: "Cumulative Layout Shift", key: "cls", color: "#db2777", formatter: value => value.toFixed(3) },
+  { title: "INP / TBT Block Time", key: "inpOrTbt", color: "#7c3aed", formatter: value => `${Math.round(value)}ms` },
+];
+
+const Sparkline = ({ config, historicalRuns }: { config: SparklineConfig; historicalRuns: RunData[] }) => {
+  const validPoints = historicalRuns
+    .map((run, index) => ({
+      val: run[config.key],
+      date: new Date(run.createdAt),
+      index,
+    }))
+    .filter((point): point is { val: number; date: Date; index: number } => point.val !== null && point.val !== undefined);
+
+  if (validPoints.length < 2) {
     return (
-      <div style={styles.container}>
-        <h3 style={styles.title}>Historical Trends</h3>
-        <p style={styles.emptyText}>Need at least 2 historical runs to visualize trend lines.</p>
+      <div className="rounded-md border border-gray-100 bg-gray-50 p-3">
+        <strong className="text-xs font-semibold text-gray-600">{config.title}</strong>
+        <p className="m-0 py-4 text-center text-xs text-gray-400">Insufficient data for trend line</p>
       </div>
     );
   }
 
-  // Helper to draw a single SVG sparkline
-  function renderSparkline(
-    title: string,
-    key: "performanceScore" | "lcp" | "cls" | "inpOrTbt",
-    color: string,
-    formatter: (v: number) => string
-  ) {
-    const validPoints = historicalRuns
-      .map((r, index) => ({
-        val: r[key],
-        date: new Date(r.createdAt),
-        index,
-      }))
-      .filter((p) => p.val !== null && p.val !== undefined) as Array<{
-      val: number;
-      date: Date;
-      index: number;
-    }>;
+  const values = validPoints.map(point => point.val);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const spread = maxVal - minVal || 1;
+  const width = 220;
+  const height = 60;
+  const paddingY = 8;
+  const paddedHeight = height - paddingY * 2;
+  const points = validPoints.map((point, index) => {
+    const x = (index / (validPoints.length - 1)) * width;
+    const y = height - paddingY - ((point.val - minVal) / spread) * paddedHeight;
+    return { x, y, val: point.val };
+  });
+  const lastPoint = points[points.length - 1];
+  const latestVal = validPoints[validPoints.length - 1].val;
 
-    if (validPoints.length < 2) {
-      return (
-        <div style={styles.chartCard} key={key}>
-          <strong style={styles.chartTitle}>{title}</strong>
-          <p style={styles.chartEmpty}>Insufficient data for trend line</p>
-        </div>
-      );
-    }
-
-    const values = validPoints.map((p) => p.val);
-    const minVal = Math.min(...values);
-    const maxVal = Math.max(...values);
-    const spread = maxVal - minVal || 1;
-
-    // SVG Layout Constants
-    const width = 220;
-    const height = 60;
-    const paddingY = 8;
-    const paddedHeight = height - paddingY * 2;
-
-    const points = validPoints.map((p, i) => {
-      const x = (i / (validPoints.length - 1)) * width;
-      // Flip Y axis since SVG 0 is top
-      const y = height - paddingY - ((p.val - minVal) / spread) * paddedHeight;
-      return { x, y, val: p.val };
-    });
-
-    const pointsString = points.map((p) => `${p.x},${p.y}`).join(" ");
-    const lastPoint = points[points.length - 1];
-    const latestVal = validPoints[validPoints.length - 1].val;
-
-    return (
-      <div style={styles.chartCard} key={key}>
-        <div style={styles.chartHeader}>
-          <strong style={styles.chartTitle}>{title}</strong>
-          <span style={{ ...styles.latestBadge, color }}>{formatter(latestVal)}</span>
-        </div>
-        <div style={styles.svgWrapper}>
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block" }}>
-            {/* Background grid line */}
-            <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3,3" />
-            {/* Trend Polyline */}
-            <polyline fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={pointsString} />
-            {/* Latest point dot */}
-            <circle cx={lastPoint.x} cy={lastPoint.y} r="4" fill={color} stroke="#fff" strokeWidth="1.5" />
-          </svg>
-        </div>
-        <div style={styles.chartFooter}>
-          <span style={styles.footerLabel}>Min: {formatter(minVal)}</span>
-          <span style={styles.footerLabel}>Max: {formatter(maxVal)}</span>
-        </div>
+  return (
+    <div className="rounded-md border border-gray-100 bg-gray-50 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <strong className="text-xs font-semibold text-gray-600">{config.title}</strong>
+        <span className="text-sm font-bold" style={{ color: config.color }}>{config.formatter(latestVal)}</span>
       </div>
+      <div className="my-2">
+        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="block">
+          <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3,3" />
+          <polyline fill="none" stroke={config.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.map(point => `${point.x},${point.y}`).join(" ")} />
+          <circle cx={lastPoint.x} cy={lastPoint.y} r="4" fill={config.color} stroke="#fff" strokeWidth="1.5" />
+        </svg>
+      </div>
+      <div className="mt-1 flex justify-between font-mono text-[0.65rem] text-gray-400">
+        <span>Min: {config.formatter(minVal)}</span>
+        <span>Max: {config.formatter(maxVal)}</span>
+      </div>
+    </div>
+  );
+};
+
+export const TrendChart = ({ historicalRuns }: TrendChartProps) => {
+  if (historicalRuns.length < 2) {
+    return (
+      <section className="mb-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <h3 className="mb-4 text-base font-semibold text-gray-900">Historical Trends</h3>
+        <p className="m-0 text-sm text-gray-500">Need at least 2 historical runs to visualize trend lines.</p>
+      </section>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <h3 style={styles.title}>Historical Trends (Last {historicalRuns.length} Runs)</h3>
-      <div style={styles.grid}>
-        {renderSparkline("Performance Score", "performanceScore", "#2563eb", (v) => `${Math.round(v)}`)}
-        {renderSparkline("Largest Contentful Paint", "lcp", "#ea580c", (v) => `${Math.round(v)}ms`)}
-        {renderSparkline("Cumulative Layout Shift", "cls", "#db2777", (v) => v.toFixed(3))}
-        {renderSparkline("INP / TBT Block Time", "inpOrTbt", "#7c3aed", (v) => `${Math.round(v)}ms`)}
+    <section className="mb-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <h3 className="mb-4 text-base font-semibold text-gray-900">Historical Trends (Last {historicalRuns.length} Runs)</h3>
+      <div className="grid gap-4 md:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+        {sparklineConfigs.map(config => (
+          <Sparkline key={config.key} config={config} historicalRuns={historicalRuns} />
+        ))}
       </div>
-    </div>
+    </section>
   );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    backgroundColor: "#fff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "8px",
-    padding: "1.25rem",
-    marginBottom: "1.5rem",
-    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
-  },
-  title: {
-    margin: "0 0 1rem",
-    fontSize: "1rem",
-    fontWeight: 600,
-    color: "#111827",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "1rem",
-  },
-  chartCard: {
-    border: "1px solid #f3f4f6",
-    borderRadius: "6px",
-    padding: "0.75rem",
-    backgroundColor: "#f9fafb",
-  },
-  chartHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "0.5rem",
-  },
-  chartTitle: {
-    fontSize: "0.75rem",
-    color: "#4b5563",
-    fontWeight: 600,
-  },
-  latestBadge: {
-    fontSize: "0.85rem",
-    fontWeight: 700,
-  },
-  svgWrapper: {
-    margin: "0.5rem 0",
-  },
-  chartFooter: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: "0.65rem",
-    color: "#9ca3af",
-    marginTop: "0.25rem",
-  },
-  footerLabel: {
-    fontFamily: "monospace",
-  },
-  emptyText: {
-    fontSize: "0.85rem",
-    color: "#6b7280",
-    margin: 0,
-  },
-  chartEmpty: {
-    fontSize: "0.75rem",
-    color: "#9ca3af",
-    textAlign: "center",
-    padding: "1rem 0",
-    margin: 0,
-  },
 };

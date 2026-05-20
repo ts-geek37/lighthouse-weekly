@@ -8,11 +8,11 @@ import { WeeklyReport } from '@/types';
  * File is named report-YYYY-MM-DD.json using the ISO 8601 date of generatedAt.
  * Throws on I/O error (caller should handle with process.exit(1)).
  */
-export async function writeJsonReport(
+export const writeJsonReport = async(
   report: WeeklyReport,
   outputDir: string,
   log: Logger
-): Promise<void> {
+): Promise<void> => {
   const date = report.generatedAt.slice(0, 10); // YYYY-MM-DD
   const filename = `report-${date}.json`;
   const filePath = path.join(outputDir, filename);

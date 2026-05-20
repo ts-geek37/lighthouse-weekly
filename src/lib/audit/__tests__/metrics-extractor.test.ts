@@ -17,7 +17,7 @@ const mockLog = {
 } as any;
 
 /** Builds a complete mock LHR with all fields present */
-function buildFullLhr(overrides: Partial<{
+const buildFullLhr = (overrides: Partial<{
   performanceScore: number;
   accessibilityScore: number;
   seoScore: number;
@@ -29,7 +29,7 @@ function buildFullLhr(overrides: Partial<{
   fcp: number;
   speedIndex: number;
   ttfb: number;
-}> = {}): LighthouseResult {
+}> = {}): LighthouseResult => {
   const o = {
     performanceScore: 0.81,
     accessibilityScore: 0.94,

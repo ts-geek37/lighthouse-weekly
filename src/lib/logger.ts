@@ -17,6 +17,6 @@ export const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
-export function childLogger(context: LogContext): pino.Logger {
+export const childLogger = (context: LogContext): pino.Logger => {
   return logger.child(context);
 }

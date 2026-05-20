@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ScoreBadge } from '@/components/ScoreBadge';
 
@@ -26,7 +26,15 @@ interface Pagination {
   totalPages: number;
 }
 
-export default function AuditHistoryPage() {
+interface AuditHistoryResponse {
+  data?: AuditRun[];
+  pagination?: Pagination;
+}
+
+const tableHeadClass = 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500';
+const tableCellClass = 'px-4 py-3 align-middle';
+
+const AuditHistoryPage = () => {
   const [runs, setRuns] = useState<AuditRun[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,37 +42,49 @@ export default function AuditHistoryPage() {
   const [projectFilter, setProjectFilter] = useState('');
 
   useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: '20' });
-    if (projectFilter) params.set('projectId', projectFilter);
+    const loadAudits = async () => {
+      setLoading(true);
+      const params = new URLSearchParams({ page: String(page), limit: '20' });
+      if (projectFilter) params.set('projectId', projectFilter);
 
-    fetch(`/api/audits?${params}`)
-      .then(r => r.json())
-      .then(data => {
+      try {
+        const response = await fetch(`/api/audits?${params}`);
+        if (!response.ok) throw new Error('Failed to load audit history');
+        const data = await response.json() as AuditHistoryResponse;
         setRuns(data.data ?? []);
         setPagination(data.pagination ?? null);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+
+    loadAudits().catch(() => setLoading(false));
   }, [page, projectFilter]);
 
-  // Get unique projects from current results for filter
-  const projects = Array.from(
-    new Map(runs.map(r => [r.projectId, r.projectTitle])).entries()
+  const projects = useMemo(
+    () => Array.from(new Map(runs.map(run => [run.projectId, run.projectTitle])).entries()),
+    [runs],
   );
 
+  const handleProjectFilterChange = (value: string) => {
+    setProjectFilter(value);
+    setPage(1);
+  };
+
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Audit History</h1>
-        <Link href="/audits/new" style={styles.runBtn}>▶ Run Audit</Link>
+    <div className="mx-auto max-w-6xl p-6 sm:p-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="m-0 text-3xl font-bold text-gray-900">Audit History</h1>
+        <Link href="/audits/new" className="w-fit rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white no-underline transition hover:bg-blue-700">
+          ▶ Run Audit
+        </Link>
       </div>
 
-      <div style={styles.toolbar}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <select
-          style={styles.filterSelect}
+          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 outline-none"
           value={projectFilter}
-          onChange={e => { setProjectFilter(e.target.value); setPage(1); }}
+          onChange={event => handleProjectFilterChange(event.target.value)}
         >
           <option value="">All projects</option>
           {projects.map(([id, title]) => (
@@ -72,86 +92,92 @@ export default function AuditHistoryPage() {
           ))}
         </select>
         {pagination && (
-          <span style={styles.count}>{pagination.total} audit{pagination.total !== 1 ? 's' : ''}</span>
+          <span className="text-sm text-gray-500">{pagination.total} audit{pagination.total !== 1 ? 's' : ''}</span>
         )}
       </div>
 
       {loading ? (
-        <p style={{ color: '#6b7280' }}>Loading audit history…</p>
+        <p className="text-gray-500">Loading audit history...</p>
       ) : runs.length === 0 ? (
-        <div style={styles.empty}>
+        <div className="rounded-lg border border-gray-200 bg-white px-6 py-12 text-center text-gray-500">
           <p>No audits yet.</p>
-          <Link href="/audits/new" style={styles.runBtn}>Run your first audit</Link>
+          <Link href="/audits/new" className="mt-3 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white no-underline transition hover:bg-blue-700">
+            Run your first audit
+          </Link>
         </div>
       ) : (
         <>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>URL</th>
-                <th style={styles.th}>Project</th>
-                <th style={styles.th}>Perf</th>
-                <th style={styles.th}>A11y</th>
-                <th style={styles.th}>SEO</th>
-                <th style={styles.th}>BP</th>
-                <th style={styles.th}>Date</th>
-                <th style={styles.th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map(run => (
-                <tr key={run.id} style={styles.tr}>
-                  <td style={styles.td}>
-                    <a href={run.url} target="_blank" rel="noopener noreferrer" style={styles.urlLink}>
-                      {run.url.length > 50 ? run.url.slice(0, 50) + '…' : run.url}
-                    </a>
-                  </td>
-                  <td style={styles.td}>
-                    <div style={{ fontSize: '0.875rem' }}>{run.projectTitle}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{run.environment}</div>
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'center' }}>
-                    {run.status === 'failed'
-                      ? <span style={styles.failedBadge}>Failed</span>
-                      : <ScoreBadge score={run.performanceScore} size="sm" />}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'center' }}>
-                    {run.status !== 'failed' && <ScoreBadge score={run.accessibilityScore} size="sm" />}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'center' }}>
-                    {run.status !== 'failed' && <ScoreBadge score={run.seoScore} size="sm" />}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'center' }}>
-                    {run.status !== 'failed' && <ScoreBadge score={run.bestPracticesScore} size="sm" />}
-                  </td>
-                  <td style={{ ...styles.td, fontSize: '0.8rem', color: '#6b7280', whiteSpace: 'nowrap' as const }}>
-                    {new Date(run.createdAt).toLocaleDateString()}<br />
-                    {new Date(run.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td style={styles.td}>
-                    <Link href={`/audits/${run.id}`} style={styles.viewLink}>View →</Link>
-                  </td>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <table className="w-full min-w-[860px] border-collapse">
+              <thead>
+                <tr className="border-b-2 border-gray-200 bg-gray-50">
+                  <th className={tableHeadClass}>URL</th>
+                  <th className={tableHeadClass}>Project</th>
+                  <th className={`${tableHeadClass} text-center`}>Perf</th>
+                  <th className={`${tableHeadClass} text-center`}>A11y</th>
+                  <th className={`${tableHeadClass} text-center`}>SEO</th>
+                  <th className={`${tableHeadClass} text-center`}>BP</th>
+                  <th className={tableHeadClass}>Date</th>
+                  <th className={tableHeadClass}></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {runs.map(run => (
+                  <tr key={run.id} className="border-b border-gray-100 last:border-b-0">
+                    <td className={tableCellClass}>
+                      <a href={run.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 no-underline hover:underline">
+                        {run.url.length > 50 ? `${run.url.slice(0, 50)}...` : run.url}
+                      </a>
+                    </td>
+                    <td className={tableCellClass}>
+                      <div className="text-sm text-gray-800">{run.projectTitle}</div>
+                      <div className="text-xs text-gray-400">{run.environment}</div>
+                    </td>
+                    <td className={`${tableCellClass} text-center`}>
+                      {run.status === 'failed'
+                        ? <span className="inline-flex items-center justify-center rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-800">Failed</span>
+                        : <ScoreBadge score={run.performanceScore} size="sm" />}
+                    </td>
+                    <td className={`${tableCellClass} text-center`}>
+                      {run.status !== 'failed' && <ScoreBadge score={run.accessibilityScore} size="sm" />}
+                    </td>
+                    <td className={`${tableCellClass} text-center`}>
+                      {run.status !== 'failed' && <ScoreBadge score={run.seoScore} size="sm" />}
+                    </td>
+                    <td className={`${tableCellClass} text-center`}>
+                      {run.status !== 'failed' && <ScoreBadge score={run.bestPracticesScore} size="sm" />}
+                    </td>
+                    <td className={`${tableCellClass} whitespace-nowrap text-sm text-gray-500`}>
+                      {new Date(run.createdAt).toLocaleDateString()}<br />
+                      {new Date(run.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className={tableCellClass}>
+                      <Link href={`/audits/${run.id}`} className="whitespace-nowrap text-sm text-blue-600 no-underline hover:underline">
+                        View →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {pagination && pagination.totalPages > 1 && (
-            <div style={styles.pagination}>
+            <div className="mt-6 flex items-center justify-center gap-4">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                type="button"
+                onClick={() => setPage(current => Math.max(1, current - 1))}
                 disabled={page === 1}
-                style={styles.pageBtn}
+                className="rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ← Prev
               </button>
-              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                Page {page} of {pagination.totalPages}
-              </span>
+              <span className="text-sm text-gray-500">Page {page} of {pagination.totalPages}</span>
               <button
-                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                type="button"
+                onClick={() => setPage(current => Math.min(pagination.totalPages, current + 1))}
                 disabled={page === pagination.totalPages}
-                style={styles.pageBtn}
+                className="rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next →
               </button>
@@ -161,25 +187,6 @@ export default function AuditHistoryPage() {
       )}
     </div>
   );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: '1200px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' },
-  title: { margin: 0, fontSize: '1.75rem', fontWeight: 700, color: '#111827' },
-  runBtn: { background: '#2563eb', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 },
-  toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' },
-  filterSelect: { padding: '0.4rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.875rem', background: '#fff' },
-  count: { fontSize: '0.875rem', color: '#6b7280' },
-  empty: { textAlign: 'center' as const, padding: '3rem', color: '#6b7280' },
-  table: { width: '100%', borderCollapse: 'collapse' as const, background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' },
-  th: { textAlign: 'left' as const, padding: '0.75rem 1rem', borderBottom: '2px solid #e5e7eb', fontWeight: 600, fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase' as const, letterSpacing: '0.05em', background: '#f9fafb' },
-  tr: { borderBottom: '1px solid #f3f4f6' },
-  td: { padding: '0.75rem 1rem', verticalAlign: 'middle' as const },
-  pageTypeBadge: { display: 'inline-block', background: '#f3f4f6', color: '#6b7280', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem', marginBottom: '0.2rem' },
-  urlLink: { fontSize: '0.85rem', color: '#2563eb', textDecoration: 'none' },
-  failedBadge: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#fee2e2', color: '#991b1b', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 500 },
-  viewLink: { color: '#2563eb', textDecoration: 'none', fontSize: '0.875rem', whiteSpace: 'nowrap' as const },
-  pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', marginTop: '1.5rem' },
-  pageBtn: { padding: '0.4rem 0.9rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontSize: '0.875rem' },
 };
+
+export default AuditHistoryPage;

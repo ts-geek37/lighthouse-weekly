@@ -1,68 +1,56 @@
 import type { Metadata } from 'next';
+import './globals.css';
+
+interface RootLayoutProps {
+  children: React.ReactNode;
+}
+
+interface NavLinkProps {
+  href: string;
+  children: React.ReactNode;
+}
 
 export const metadata: Metadata = {
   title: 'Lighthouse Monitor',
   description: 'Weekly website performance monitoring',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+const RootLayout = ({ children }: RootLayoutProps) => {
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif', background: '#f5f6f8', minHeight: '100vh' }}>
-        <nav style={{
-          background: '#fff',
-          borderBottom: '1px solid #e5e7eb',
-          padding: '0 2rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1.5rem',
-          height: '56px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-        }}>
-          <a href="/" style={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+      <body className="m-0 min-h-screen bg-[#f5f6f8] font-sans antialiased">
+        <nav className="sticky top-0 z-[100] flex h-14 items-center gap-6 border-b border-gray-200 bg-white px-4 sm:px-8">
+          <a href="/" className="flex shrink-0 items-center gap-1.5 text-[0.95rem] font-bold text-gray-900 no-underline">
             🔦 Lighthouse Monitor
           </a>
-          <div style={{ display: 'flex', gap: '0.25rem', flex: 1, alignItems: 'center' }}>
+          <div className="flex flex-1 items-center gap-1">
             <NavLink href="/projects">Projects</NavLink>
             <NavLink href="/audits">Audits</NavLink>
           </div>
-          <a href="/audits/new" style={{
-            background: '#2563eb',
-            color: '#fff',
-            padding: '0.4rem 0.9rem',
-            borderRadius: '6px',
-            textDecoration: 'none',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            flexShrink: 0,
-          }}>
+          <a
+            href="/audits/new"
+            className="shrink-0 rounded-md bg-blue-600 px-3.5 py-1.5 text-sm font-medium text-white no-underline transition hover:bg-blue-700"
+          >
             ▶ Run Audit
           </a>
         </nav>
-        <main style={{ minHeight: 'calc(100vh - 56px)' }}>
+        <main className="min-h-[calc(100vh-56px)]">
           {children}
         </main>
       </body>
     </html>
   );
-}
+};
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+const NavLink = ({ href, children }: NavLinkProps) => {
   return (
     <a
       href={href}
-      style={{
-        padding: '0.4rem 0.75rem',
-        borderRadius: '6px',
-        textDecoration: 'none',
-        color: '#374151',
-        fontSize: '0.875rem',
-        fontWeight: 500,
-      }}
+      className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 no-underline transition hover:bg-gray-100 hover:text-gray-950"
     >
       {children}
     </a>
   );
-}
+};
+
+export default RootLayout;

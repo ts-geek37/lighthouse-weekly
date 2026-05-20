@@ -41,12 +41,12 @@ const mockLog = {
   child: jest.fn().mockReturnThis(),
 } as any;
 
-function createMockGroqInstance() {
+const createMockGroqInstance = () => {
   const instance = new (Groq as any)();
   return instance.chat.completions.create as jest.MockedFunction<any>;
 }
 
-function buildTestInput(): AiSummaryInput {
+const buildTestInput = (): AiSummaryInput => {
   const metrics: ExtractedMetrics = {
     performanceScore: 81,
     accessibilityScore: 94,
@@ -67,7 +67,7 @@ function buildTestInput(): AiSummaryInput {
   return { url: 'https://example.com', pageType: 'homepage', metrics };
 }
 
-function buildValidSummary(): string {
+const buildValidSummary = (): string => {
   return `## Good
 - Strong SEO score of 100/100
 - Accessibility score of 94/100 is healthy
@@ -331,7 +331,7 @@ describe('classifyMetric', () => {
 // ─── 10.2 + 10.3 detectSituations ────────────────────────────────────────────
 
 describe('detectSituations', () => {
-  function baseMetrics(): ExtractedMetrics {
+  const baseMetrics = (): ExtractedMetrics => {
     return {
       performanceScore: 90,
       accessibilityScore: 95,
@@ -455,7 +455,7 @@ describe('detectSituations', () => {
 // ─── 10.4 resolveCausalRules ──────────────────────────────────────────────────
 
 describe('resolveCausalRules', () => {
-  function baseMetrics(): ExtractedMetrics {
+  const baseMetrics = (): ExtractedMetrics => {
     return {
       performanceScore: 90, accessibilityScore: 95, seoScore: 100, bestPracticesScore: 92,
       lcp: 2000, cls: 0.05, inpOrTbt: 150, fcp: 1200, speedIndex: 2500, ttfb: 150, opportunities: [],
@@ -508,7 +508,7 @@ describe('resolveCausalRules', () => {
 // ─── 10.5 buildSummaryPrompt ──────────────────────────────────────────────────
 
 describe('buildSummaryPrompt', () => {
-  function baseInput(): AiSummaryInput {
+  const baseInput = (): AiSummaryInput => {
     return {
       url: 'https://example.com',
       pageType: 'homepage',
@@ -574,7 +574,7 @@ describe('buildSummaryPrompt', () => {
 // ─── 10.6 getInvestigationSteps ───────────────────────────────────────────────
 
 describe('getInvestigationSteps', () => {
-  function baseMetrics(): ExtractedMetrics {
+  const baseMetrics = (): ExtractedMetrics => {
     return {
       performanceScore: 90, accessibilityScore: 95, seoScore: 100, bestPracticesScore: 92,
       lcp: 2000, cls: 0.05, inpOrTbt: 600, fcp: 1200, speedIndex: 2500, ttfb: 150, opportunities: [],

@@ -1,20 +1,19 @@
-'use client';
+"use client";
 
-import { use, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { ScoreBadge } from '@/components/ScoreBadge';
-import { AgentPrompt, AdvancedDiagnostics } from '@/types';
-import { AgentPromptCard } from '@/components/AgentPromptCard';
+import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import { ScoreBadge } from "@/components/ScoreBadge";
+import { AgentPrompt, AdvancedDiagnostics } from "@/types";
+import { AgentPromptCard } from "@/components/AgentPromptCard";
 
-// Weekly intelligence imports
-import { ScoreComparisonCards } from '@/components/weekly-intelligence/ScoreComparisonCards';
-import { VitalsComparisonTable } from '@/components/weekly-intelligence/VitalsComparisonTable';
-import { RegressionList } from '@/components/weekly-intelligence/RegressionList';
-import { OpportunityDiffList } from '@/components/weekly-intelligence/OpportunityDiffList';
-import { DeterministicRecommendationList } from '@/components/weekly-intelligence/DeterministicRecommendationList';
-import { AiInsightPanel } from '@/components/weekly-intelligence/AiInsightPanel';
-import { TrendChart } from '@/components/weekly-intelligence/TrendChart';
-import { ProjectComparisonReport } from '@/lib/comparison/comparisonTypes';
+import { ScoreComparisonCards } from "@/components/weekly-intelligence/ScoreComparisonCards";
+import { VitalsComparisonTable } from "@/components/weekly-intelligence/VitalsComparisonTable";
+import { RegressionList } from "@/components/weekly-intelligence/RegressionList";
+import { OpportunityDiffList } from "@/components/weekly-intelligence/OpportunityDiffList";
+import { DeterministicRecommendationList } from "@/components/weekly-intelligence/DeterministicRecommendationList";
+import { AiInsightPanel } from "@/components/weekly-intelligence/AiInsightPanel";
+import { TrendChart } from "@/components/weekly-intelligence/TrendChart";
+import { ProjectComparisonReport } from "@/lib/comparison/comparisonTypes";
 
 interface AuditDetail {
   id: string;
@@ -47,101 +46,167 @@ interface AuditDetail {
   aiSummary: string | null;
   advancedDiagnostics?: AdvancedDiagnostics;
   createdAt: string;
-  device: 'mobile' | 'desktop';
+  device: "mobile" | "desktop";
   siblingRunId: string | null;
 }
 
-function formatMs(value: number | null): string {
-  if (value === null) return 'N/A';
-  if (value >= 1000) return `${(value / 1000).toFixed(2)}s`;
-  return `${value.toFixed(2)}ms`;
-}
+const formatMs = (value: number | null): string =>
+  value === null
+    ? "N/A"
+    : value >= 1000
+      ? `${(value / 1000).toFixed(2)}s`
+      : `${value.toFixed(2)}ms`;
 
-function vitalStatus(metric: string, value: number | null): 'good' | 'needs-improvement' | 'poor' | 'unknown' {
-  if (value === null) return 'unknown';
+const vitalStatus = (
+  metric: string,
+  value: number | null,
+): "good" | "needs-improvement" | "poor" | "unknown" => {
+  if (value === null) return "unknown";
   const thresholds: Record<string, [number, number]> = {
-    lcp: [2500, 4000], cls: [0.1, 0.25], inpOrTbt: [200, 500], fcp: [1800, 3000], speedIndex: [3400, 5800],
+    lcp: [2500, 4000],
+    cls: [0.1, 0.25],
+    inpOrTbt: [200, 500],
+    fcp: [1800, 3000],
+    speedIndex: [3400, 5800],
   };
   const [good, poor] = thresholds[metric] ?? [Infinity, Infinity];
-  if (value <= good) return 'good';
-  if (value <= poor) return 'needs-improvement';
-  return 'poor';
-}
+  if (value <= good) return "good";
+  if (value <= poor) return "needs-improvement";
+  return "poor";
+};
 
-const vitalColors = { good: '#065f46', 'needs-improvement': '#92400e', poor: '#991b1b', unknown: '#9ca3af' };
-const vitalBg = { good: '#d1fae5', 'needs-improvement': '#fef3c7', poor: '#fee2e2', unknown: '#f3f4f6' };
+const vitalColors = {
+  good: "#065f46",
+  "needs-improvement": "#92400e",
+  poor: "#991b1b",
+  unknown: "#9ca3af",
+};
+const vitalBg = {
+  good: "#d1fae5",
+  "needs-improvement": "#fef3c7",
+  poor: "#fee2e2",
+  unknown: "#f3f4f6",
+};
 
-function renderMarkdown(text: string) {
+const renderMarkdown = (text: string): React.ReactNode[] => {
   const blocks: React.ReactNode[] = [];
   let currentList: React.ReactNode[] = [];
-  
+
   const pushList = () => {
     if (currentList.length > 0) {
-      blocks.push(<ul key={`ul-${blocks.length}`} style={styles.markdownList}>{currentList}</ul>);
+      blocks.push(
+        <ul
+          key={`ul-${blocks.length}`}
+          className="mb-2 list-disc pl-5 text-gray-600"
+        >
+          {currentList}
+        </ul>,
+      );
       currentList = [];
     }
   };
 
-  text.split('\n').forEach((line, i) => {
+  text.split("\n").forEach((line, i) => {
     const trimmed = line.trim();
     if (!trimmed) {
       pushList();
       return;
     }
 
-    if (trimmed.startsWith('## ')) {
+    if (trimmed.startsWith("## ")) {
       pushList();
-      const title = trimmed.replace('## ', '');
-      let icon = '💡';
-      if (title.toLowerCase().includes('good')) icon = '✅';
-      else if (title.toLowerCase().includes('needs attention') || title.toLowerCase().includes('issue')) icon = '⚠️';
-      else if (title.toLowerCase().includes('investigate') || title.toLowerCase().includes('action')) icon = '🛠️';
-      blocks.push(<h3 key={i} style={styles.markdownH2}>{icon} {title}</h3>);
-    } else if (trimmed.startsWith('# ')) {
+      const title = trimmed.replace("## ", "");
+      let icon = "💡";
+      if (title.toLowerCase().includes("good")) icon = "✅";
+      else if (
+        title.toLowerCase().includes("needs attention") ||
+        title.toLowerCase().includes("issue")
+      )
+        icon = "⚠️";
+      else if (
+        title.toLowerCase().includes("investigate") ||
+        title.toLowerCase().includes("action")
+      )
+        icon = "🛠️";
+      blocks.push(
+        <h3 key={i} className="mb-3 mt-4 text-lg font-semibold text-gray-900">
+          {icon} {title}
+        </h3>,
+      );
+    } else if (trimmed.startsWith("# ")) {
       pushList();
-      blocks.push(<h2 key={i} style={styles.markdownH1}>{trimmed.replace('# ', '')}</h2>);
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      blocks.push(
+        <h2
+          key={i}
+          className="mb-4 mt-6 border-b border-gray-200 pb-2 text-xl font-bold text-gray-950"
+        >
+          {trimmed.replace("# ", "")}
+        </h2>,
+      );
+    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       const content = trimmed.slice(2);
       currentList.push(
-        <li key={i} style={styles.markdownListItem}
-          dangerouslySetInnerHTML={{ __html: content
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/`(.*?)`/g, '<code style="background:#f1f5f9;color:#0f172a;padding:0.1em 0.4em;border-radius:4px;font-family:monospace;font-size:0.85em;border:1px solid #e2e8f0">$1</code>')
-          }} 
-        />
+        <li
+          key={i}
+          className="mb-1"
+          dangerouslySetInnerHTML={{
+            __html: content
+              .replace(
+                /\*\*(.*?)\*\*/g,
+                '<strong class="font-semibold">$1</strong>',
+              )
+              .replace(
+                /`(.*?)`/g,
+                '<code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm">$1</code>',
+              ),
+          }}
+        />,
       );
     } else {
       pushList();
       blocks.push(
-        <p key={i} style={styles.markdownP}
-          dangerouslySetInnerHTML={{ __html: trimmed
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/`(.*?)`/g, '<code style="background:#f1f5f9;color:#0f172a;padding:0.1em 0.4em;border-radius:4px;font-family:monospace;font-size:0.85em;border:1px solid #e2e8f0">$1</code>')
-          }} 
-        />
+        <p
+          key={i}
+          className="mb-3 text-gray-600"
+          dangerouslySetInnerHTML={{
+            __html: trimmed
+              .replace(
+                /\*\*(.*?)\*\*/g,
+                '<strong class="font-semibold">$1</strong>',
+              )
+              .replace(
+                /`(.*?)`/g,
+                '<code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm">$1</code>',
+              ),
+          }}
+        />,
       );
     }
   });
   pushList();
-  
-  return blocks;
-}
 
-export default function AuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return blocks;
+};
+
+const AuditDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
   const [mobileAudit, setMobileAudit] = useState<AuditDetail | null>(null);
   const [desktopAudit, setDesktopAudit] = useState<AuditDetail | null>(null);
-  const [activeDevice, setActiveDevice] = useState<'mobile' | 'desktop'>('mobile');
-  const [activeTab, setActiveTab] = useState<'overview' | 'official'>('overview');
+  const [activeDevice, setActiveDevice] = useState<"mobile" | "desktop">(
+    "mobile",
+  );
+  const [activeTab, setActiveTab] = useState<"overview" | "official">(
+    "overview",
+  );
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  // Comparison report states
-  const [comparisonReport, setComparisonReport] = useState<ProjectComparisonReport | null>(null);
+  const [comparisonReport, setComparisonReport] =
+    useState<ProjectComparisonReport | null>(null);
   const [loadingComparison, setLoadingComparison] = useState(false);
 
   const setAuditForDevice = (data: AuditDetail) => {
-    if (data.device === 'mobile') {
+    if (data.device === "mobile") {
       setMobileAudit(data);
     } else {
       setDesktopAudit(data);
@@ -151,7 +216,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchAuditPair() {
+    const fetchAuditPair = async () => {
       setLoading(true);
       setNotFound(false);
       setMobileAudit(null);
@@ -167,7 +232,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
           }
           return;
         }
-        if (!response.ok) throw new Error('Failed to fetch audit');
+        if (!response.ok) throw new Error("Failed to fetch audit");
 
         const data: AuditDetail = await response.json();
         if (cancelled) return;
@@ -176,22 +241,24 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
         setActiveDevice(data.device);
 
         if (data.siblingRunId) {
-          const siblingResponse = await fetch(`/api/audits/${data.siblingRunId}`);
+          const siblingResponse = await fetch(
+            `/api/audits/${data.siblingRunId}`,
+          );
           if (siblingResponse.ok) {
             const sibling: AuditDetail = await siblingResponse.json();
             if (cancelled) return;
             setAuditForDevice(sibling);
-            if (sibling.device === 'mobile') {
-              setActiveDevice('mobile');
+            if (sibling.device === "mobile") {
+              setActiveDevice("mobile");
             }
           }
         }
       } catch (err) {
-        console.error('Error fetching audit detail:', err);
+        console.error("Error fetching audit detail:", err);
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }
+    };
 
     fetchAuditPair();
 
@@ -200,9 +267,10 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
     };
   }, [id]);
 
-  const audit = activeDevice === 'mobile'
-    ? (mobileAudit ?? desktopAudit)
-    : (desktopAudit ?? mobileAudit);
+  const audit =
+    activeDevice === "mobile"
+      ? (mobileAudit ?? desktopAudit)
+      : (desktopAudit ?? mobileAudit);
 
   useEffect(() => {
     if (!audit?.projectId) return;
@@ -211,16 +279,18 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
     setLoadingComparison(true);
     setComparisonReport(null);
 
-    fetch(`/api/projects/${audit.projectId}/weekly-intelligence?device=${activeDevice}`)
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to fetch comparison');
+    fetch(
+      `/api/projects/${audit.projectId}/weekly-intelligence?device=${activeDevice}`,
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch comparison");
         return r.json();
       })
-      .then(data => {
+      .then((data) => {
         if (!cancelled) setComparisonReport(data);
       })
-      .catch(err => {
-        if (!cancelled) console.error('Error fetching comparison report:', err);
+      .catch((err) => {
+        if (!cancelled) console.error("Error fetching comparison report:", err);
       })
       .finally(() => {
         if (!cancelled) setLoadingComparison(false);
@@ -231,143 +301,230 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
     };
   }, [audit?.projectId, activeDevice]);
 
-  if (loading) return <div style={styles.container}><p>Loading audit...</p></div>;
-  if (notFound) return (
-    <div style={styles.container}>
-      <p>Audit not found.</p>
-      <Link href="/audits" style={styles.back}>Back to history</Link>
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="mx-auto max-w-6xl p-8">
+        <p className="text-gray-500">Loading audit...</p>
+      </div>
+    );
+
+  if (notFound)
+    return (
+      <div className="mx-auto max-w-6xl p-8">
+        <p>Audit not found.</p>
+        <Link
+          href="/audits"
+          className="text-sm text-gray-500 no-underline hover:text-gray-800"
+        >
+          Back to history
+        </Link>
+      </div>
+    );
+
   if (!audit) return null;
 
-
-  const activeUrlReport = comparisonReport?.urls.find(u => u.url === audit.url);
+  const activeUrlReport = comparisonReport?.urls.find(
+    (u) => u.url === audit.url,
+  );
 
   const vitals = [
-    { key: 'lcp', label: 'LCP', value: audit.coreWebVitals.lcp, desc: 'Largest Contentful Paint' },
-    { key: 'cls', label: 'CLS', value: audit.coreWebVitals.cls, desc: 'Cumulative Layout Shift' },
-    { key: 'inpOrTbt', label: 'INP/TBT', value: audit.coreWebVitals.inpOrTbt, desc: 'INP / Total Blocking Time' },
-    { key: 'fcp', label: 'FCP', value: audit.coreWebVitals.fcp, desc: 'First Contentful Paint' },
-    { key: 'speedIndex', label: 'Speed Index', value: audit.coreWebVitals.speedIndex, desc: 'Speed Index' },
+    {
+      key: "lcp",
+      label: "LCP",
+      value: audit.coreWebVitals.lcp,
+      desc: "Largest Contentful Paint",
+    },
+    {
+      key: "cls",
+      label: "CLS",
+      value: audit.coreWebVitals.cls,
+      desc: "Cumulative Layout Shift",
+    },
+    {
+      key: "inpOrTbt",
+      label: "INP/TBT",
+      value: audit.coreWebVitals.inpOrTbt,
+      desc: "INP / Total Blocking Time",
+    },
+    {
+      key: "fcp",
+      label: "FCP",
+      value: audit.coreWebVitals.fcp,
+      desc: "First Contentful Paint",
+    },
+    {
+      key: "speedIndex",
+      label: "Speed Index",
+      value: audit.coreWebVitals.speedIndex,
+      desc: "Speed Index",
+    },
   ];
 
   return (
-    <div style={styles.container}>
-      <div style={styles.breadcrumb}>
-        <Link href="/projects" style={styles.back}>Projects</Link>
-        <span style={styles.sep}>/</span>
-        <Link href={`/projects/${audit.projectId}`} style={styles.back}>{audit.projectTitle}</Link>
-        <span style={styles.sep}>/</span>
-        <Link href="/audits" style={styles.back}>Audits</Link>
-        <span style={styles.sep}>/</span>
-        <span style={{ color: '#374151' }}>Detail</span>
+    <div className="mx-auto max-w-6xl p-6 sm:p-8">
+      <div className="mb-6 flex items-center gap-2 text-sm">
+        <Link
+          href="/projects"
+          className="text-gray-500 no-underline hover:text-gray-800"
+        >
+          Projects
+        </Link>
+        <span className="text-gray-300">/</span>
+        <Link
+          href={`/projects/${audit.projectId}`}
+          className="text-gray-500 no-underline hover:text-gray-800"
+        >
+          {audit.projectTitle}
+        </Link>
+        <span className="text-gray-300">/</span>
+        <Link
+          href="/audits"
+          className="text-gray-500 no-underline hover:text-gray-800"
+        >
+          Audits
+        </Link>
+        <span className="text-gray-300">/</span>
+        <span className="text-gray-700">Detail</span>
       </div>
 
-      <div style={styles.pageHeader}>
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 style={styles.title}>{audit.pageType} Audit</h1>
-          <a href={audit.url} target="_blank" rel="noopener noreferrer" style={styles.urlLink}>{audit.url}</a>
-          <div style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: '#6b7280' }}>
-            {audit.projectTitle} · {audit.environment} · {audit.projectOwner} · {new Date(audit.createdAt).toLocaleString()}
+          <h1 className="mb-1 text-3xl font-bold text-gray-900">
+            {audit.pageType} Audit
+          </h1>
+          <a
+            href={audit.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-base text-blue-600 no-underline hover:underline"
+          >
+            {audit.url}
+          </a>
+          <div className="mt-1 text-sm text-gray-500">
+            {audit.projectTitle} · {audit.environment} · {audit.projectOwner} ·{" "}
+            {new Date(audit.createdAt).toLocaleString()}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {audit.status === 'failed' && <span style={styles.failedBadge}>Audit Failed</span>}
-          <Link href="/audits/new" style={styles.rerunBtn}>↺ Re-run</Link>
-        </div>
+        {audit.status !== "failed" && (
+          <div className="flex gap-2">
+            {audit.status === "failed" && (
+              <span className="rounded-md bg-red-100 px-3 py-1.5 text-sm font-medium text-red-800">
+                Audit Failed
+              </span>
+            )}
+            <Link
+              href="/audits/new"
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 no-underline transition hover:bg-gray-50"
+            >
+              ↺ Re-run
+            </Link>
+          </div>
+        )}
       </div>
 
-      {audit.status !== 'failed' && (
-        <div style={styles.deviceTabContainer}>
+      {audit.status !== "failed" && (
+        <div className="mb-6 flex w-fit rounded-lg border border-gray-200 bg-gray-50 p-1">
           <button
-            onClick={() => setActiveDevice('mobile')}
+            onClick={() => setActiveDevice("mobile")}
             disabled={!mobileAudit}
-            style={{
-              ...styles.deviceTab,
-              ...(activeDevice === 'mobile' ? styles.deviceTabActive : {}),
-              ...(!mobileAudit ? { cursor: 'not-allowed', opacity: 0.5 } : {}),
-            }}
-            title={!mobileAudit ? 'No mobile audit run found.' : undefined}
+            className={`flex items-center rounded-md px-4 py-2 text-sm font-medium transition ${activeDevice === "mobile" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"}`}
+            title={!mobileAudit ? "No mobile audit run found." : undefined}
           >
-            <svg style={{ marginRight: '6px' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-              <line x1="12" y1="18" x2="12.01" y2="18" />
-            </svg>
-            Mobile
+            📱 Mobile
           </button>
           <button
-            onClick={() => setActiveDevice('desktop')}
+            onClick={() => setActiveDevice("desktop")}
             disabled={!desktopAudit}
-            style={{
-              ...styles.deviceTab,
-              ...(activeDevice === 'desktop' ? styles.deviceTabActive : {}),
-              ...(!desktopAudit ? { cursor: 'not-allowed', opacity: 0.5 } : {}),
-            }}
-            title={!desktopAudit ? 'No desktop audit run found.' : undefined}
+            className={`flex items-center rounded-md px-4 py-2 text-sm font-medium transition ${activeDevice === "desktop" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"}`}
+            title={!desktopAudit ? "No desktop audit run found." : undefined}
           >
-            <svg style={{ marginRight: '6px' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-            Desktop {!desktopAudit && '(N/A)'}
+            💻 Desktop {!desktopAudit && "(N/A)"}
           </button>
         </div>
       )}
 
-      {audit.status === 'failed' ? (
-        <div style={styles.errorBox}>
-          This audit failed. No metrics are available. Re-run the audit using the button above.
+      {audit.status === "failed" ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-800">
+          This audit failed. No metrics are available. Re-run the audit using
+          the button above.
         </div>
       ) : (
         <>
-          <div style={styles.tabContainer}>
-            <button 
-              style={{...styles.tabBtn, ...(activeTab === 'overview' ? styles.activeTab : {})}} 
-              onClick={() => setActiveTab('overview')}
+          <div className="mb-6 flex w-fit rounded-lg border border-gray-200 bg-gray-50 p-1">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition ${activeTab === "overview" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
             >
               Overview
             </button>
-            <button 
-              style={{...styles.tabBtn, ...(activeTab === 'official' ? styles.activeTab : {})}} 
-              onClick={() => setActiveTab('official')}
+            <button
+              onClick={() => setActiveTab("official")}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition ${activeTab === "official" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
             >
               Official Report
             </button>
           </div>
 
-          <div style={{ marginTop: '2rem' }}>
-            {activeTab === 'overview' && (
+          <div className="mt-8">
+            {activeTab === "overview" && (
               <>
-                <div style={styles.scoresGrid}>
+                <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
                   {[
-                    { label: 'Performance', score: audit.performanceScore },
-                    { label: 'Accessibility', score: audit.accessibilityScore },
-                    { label: 'SEO', score: audit.seoScore },
-                    { label: 'Best Practices', score: audit.bestPracticesScore },
+                    { label: "Performance", score: audit.performanceScore },
+                    { label: "Accessibility", score: audit.accessibilityScore },
+                    {
+                      label: "Best Practices",
+                      score: audit.bestPracticesScore,
+                    },
+                    { label: "SEO", score: audit.seoScore },
                   ].map(({ label, score }) => (
-                    <div key={label} style={styles.scoreCard}>
+                    <div
+                      key={label}
+                      className="rounded-lg border border-gray-200 bg-white p-5 text-center"
+                    >
                       <ScoreBadge score={score} size="lg" />
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.5rem', fontWeight: 500 }}>{label}</div>
+                      <div className="mt-2 text-xs text-gray-500">{label}</div>
                     </div>
                   ))}
                 </div>
 
-                <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Core Web Vitals</h2>
-                  <div style={styles.vitalsGrid}>
+                <div className="mb-10">
+                  <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                    Core Web Vitals
+                  </h2>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                     {vitals.map(({ key, label, value, desc }) => {
                       const status = vitalStatus(key, value);
                       return (
-                        <div key={key} style={{ ...styles.vitalCard, background: vitalBg[status] }}>
-                          <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>{label}</div>
-                          <div style={{ fontWeight: 700, fontSize: '1.4rem', color: vitalColors[status] }}>
-                            {key === 'cls' ? (value !== null ? value.toFixed(2) : 'N/A') : formatMs(value)}
+                        <div
+                          key={key}
+                          className="rounded-lg border border-gray-200 p-4 text-center"
+                          style={{ backgroundColor: vitalBg[status] }}
+                        >
+                          <div className="mb-1 text-xs text-gray-600">
+                            {label}
                           </div>
-                          <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '0.25rem' }}>{desc}</div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 600, color: vitalColors[status], marginTop: '0.2rem', textTransform: 'capitalize' }}>
-                            {status === 'unknown' ? '' : status.replace('-', ' ')}
+                          <div
+                            className="text-xl font-bold"
+                            style={{ color: vitalColors[status] }}
+                          >
+                            {key === "cls"
+                              ? value !== null
+                                ? value.toFixed(2)
+                                : "N/A"
+                              : formatMs(value)}
                           </div>
+                          <div className="mt-1 text-[0.7rem] text-gray-500">
+                            {desc}
+                          </div>
+                          {status !== "unknown" && (
+                            <div
+                              className="mt-1 text-[0.7rem] font-semibold capitalize"
+                              style={{ color: vitalColors[status] }}
+                            >
+                              {status.replace("-", " ")}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -375,44 +532,78 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 {audit.aiSummary && (
-                  <div style={styles.section}>
-                    <div style={styles.aiSummaryHeader}>
-                      <div style={styles.aiIconWrapper}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{color: '#8b5cf6'}}>
-                          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                        </svg>
+                  <div className="mb-10">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600 text-xl">
+                        🤖
                       </div>
-                      <h2 style={{...styles.sectionTitle, margin: 0, color: '#4c1d95'}}>AI Engineering Summary</h2>
+                      <h2 className="m-0 text-lg font-semibold text-gray-900">
+                        AI Engineering Summary
+                      </h2>
                     </div>
-                    <div style={styles.aiSummaryContainer}>
+                    <div className="rounded-lg border border-gray-200 bg-white p-6">
                       {renderMarkdown(audit.aiSummary)}
                     </div>
                   </div>
                 )}
 
                 {audit.opportunities.length > 0 && (
-                  <div style={styles.section}>
-                    <h2 style={styles.sectionTitle}>Optimization Opportunities</h2>
-                    <div style={styles.opportunitiesTable}>
-                      {audit.opportunities.map(opp => (
-                        <div key={opp.id} style={styles.oppRow}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 500, fontSize: '0.9rem', color: '#1f2937' }}>{opp.title}</div>
-                            <div style={{ fontSize: '0.8rem', color: '#4b5563', marginTop: '0.2rem', lineHeight: 1.5 }}>{opp.description}</div>
+                  <div className="mb-10">
+                    <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                      Optimization Opportunities
+                    </h2>
+                    <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+                      {audit.opportunities.map((opp) => (
+                        <div
+                          key={opp.id}
+                          className="flex items-start justify-between gap-4 p-4"
+                        >
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900">
+                              {opp.title}
+                            </div>
+                            <div className="mt-1 text-xs text-gray-600">
+                              {opp.description}
+                            </div>
                           </div>
-                          <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-end' }}>
-                            {opp.savingsMs !== undefined && opp.savingsMs > 0 && (
-                              <div style={styles.savingsBadge}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight: 4}}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                {formatMs(opp.savingsMs)}
-                              </div>
-                            )}
-                            {opp.savingsBytes !== undefined && opp.savingsBytes > 0 && (
-                              <div style={{ ...styles.savingsBadge, background: '#eff6ff', color: '#1d4ed8' }}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight: 4}}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                {(opp.savingsBytes / 1024).toFixed(2)} KB
-                              </div>
-                            )}
+                          <div className="flex shrink-0 flex-col items-end gap-2">
+                            {opp.savingsMs !== undefined &&
+                              opp.savingsMs > 0 && (
+                                <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">
+                                  <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    className="mr-1"
+                                  >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
+                                  </svg>
+                                  {formatMs(opp.savingsMs)}
+                                </span>
+                              )}
+                            {opp.savingsBytes !== undefined &&
+                              opp.savingsBytes > 0 && (
+                                <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-800">
+                                  <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    className="mr-1"
+                                  >
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                  </svg>
+                                  {(opp.savingsBytes / 1024).toFixed(2)} KB
+                                </span>
+                              )}
                           </div>
                         </div>
                       ))}
@@ -421,67 +612,89 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
                 )}
 
                 {(() => {
-                  const promptsToDisplay = (activeUrlReport && activeUrlReport.hasEnoughData && activeUrlReport.agentPrompts && activeUrlReport.agentPrompts.length > 0)
-                    ? activeUrlReport.agentPrompts
-                    : audit.agentPrompts;
+                  const promptsToDisplay =
+                    activeUrlReport &&
+                    activeUrlReport.hasEnoughData &&
+                    activeUrlReport.agentPrompts &&
+                    activeUrlReport.agentPrompts.length > 0
+                      ? activeUrlReport.agentPrompts
+                      : audit.agentPrompts;
 
-                  const isWeeklyPrompts = activeUrlReport && activeUrlReport.hasEnoughData && activeUrlReport.agentPrompts && activeUrlReport.agentPrompts.length > 0;
+                  const isWeeklyPrompts =
+                    activeUrlReport &&
+                    activeUrlReport.hasEnoughData &&
+                    activeUrlReport.agentPrompts &&
+                    activeUrlReport.agentPrompts.length > 0;
 
-                  if (!promptsToDisplay || promptsToDisplay.length === 0) return null;
+                  if (!promptsToDisplay || promptsToDisplay.length === 0)
+                    return null;
 
                   return (
-                    <div id="agent-prompts-section" style={styles.section}>
-                      <div style={styles.agentSectionHeader}>
-                        <div>
-                          <h2 style={{ ...styles.sectionTitle, margin: 0 }}>
-                            {isWeeklyPrompts ? '🤖 Comparative Agent Prompts' : '🤖 Agent Investigation Prompts'}
-                          </h2>
-                          <p style={styles.agentSectionDesc}>
-                            {isWeeklyPrompts
-                              ? "These prompts are optimized for AI coding agents to investigate the performance regressions."
-                              : "Paste these into your AI coding agent (Cursor, Copilot, Claude, etc.) to investigate root causes."}
-                          </p>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div className="mb-10">
+                      <h2 className="mb-1 text-lg font-semibold text-gray-900">
+                        {isWeeklyPrompts
+                          ? "🤖 Comparative Agent Prompts"
+                          : "🤖 Agent Investigation Prompts"}
+                      </h2>
+                      <p className="mb-4 text-xs text-gray-500">
+                        {isWeeklyPrompts
+                          ? "These prompts are optimized for AI coding agents to investigate the performance regressions."
+                          : "Paste these into your AI coding agent (Cursor, Copilot, Claude, etc.) to investigate root causes."}
+                      </p>
+                      <div className="flex flex-col gap-4">
                         {promptsToDisplay.map((prompt, i) => (
-                          <AgentPromptCard key={prompt.opportunityId} prompt={prompt} index={i} />
+                          <AgentPromptCard
+                            key={prompt.opportunityId}
+                            prompt={prompt}
+                            index={i}
+                          />
                         ))}
                       </div>
                     </div>
                   );
                 })()}
 
-                <div style={{ borderTop: '2px solid #e5e7eb', marginTop: '3rem', paddingTop: '2rem' }}>
-                  <div style={{ marginBottom: '1.5rem' }}>
-                    <h2 style={{ ...styles.sectionTitle, fontSize: '1.4rem', margin: 0 }}>📊 Weekly Intelligence</h2>
-                    <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
+                <div className="border-t border-gray-200 pt-10">
+                  <div className="mb-6">
+                    <h2 className="m-0 text-xl font-semibold text-gray-900">
+                      📊 Weekly Intelligence
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
                       Comparing this audit against previous baselines.
                     </p>
                   </div>
 
                   {loadingComparison ? (
-                    <p style={{ color: '#6b7280' }}>Loading comparison details...</p>
+                    <p className="text-gray-500">
+                      Loading comparison details...
+                    </p>
                   ) : !activeUrlReport ? (
-                    <p style={{ color: '#6b7280' }}>No comparison data available.</p>
+                    <p className="text-gray-500">
+                      No comparison data available.
+                    </p>
                   ) : !activeUrlReport.hasEnoughData ? (
-                    <div style={styles.insufficientDataCard}>
-                      <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', fontWeight: 600 }}>Insufficient Data</h3>
-                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+                      <h3 className="m-0 mb-2 text-base font-medium text-gray-700">
+                        Insufficient Data
+                      </h3>
+                      <p className="m-0 text-sm text-gray-500">
                         Need at least two successful audits to analyze changes.
                       </p>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    <div className="flex flex-col gap-8">
                       <ScoreComparisonCards
                         metrics={{
-                          performanceScore: activeUrlReport.metrics!.performanceScore,
-                          accessibilityScore: activeUrlReport.metrics!.accessibilityScore,
+                          performanceScore:
+                            activeUrlReport.metrics!.performanceScore,
+                          accessibilityScore:
+                            activeUrlReport.metrics!.accessibilityScore,
                           seoScore: activeUrlReport.metrics!.seoScore,
-                          bestPracticesScore: activeUrlReport.metrics!.bestPracticesScore,
+                          bestPracticesScore:
+                            activeUrlReport.metrics!.bestPracticesScore,
                         }}
                       />
-                      <div style={styles.twoColumnGrid}>
+                      <div className="grid gap-6 lg:grid-cols-2">
                         <VitalsComparisonTable
                           metrics={{
                             lcp: activeUrlReport.metrics!.lcp,
@@ -491,13 +704,23 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
                             ttfb: activeUrlReport.metrics!.ttfb,
                           }}
                         />
-                        <TrendChart historicalRuns={activeUrlReport.historicalRuns} />
+                        <TrendChart
+                          historicalRuns={activeUrlReport.historicalRuns}
+                        />
                       </div>
                       <AiInsightPanel
                         projectId={audit.projectId}
                         projectUrlId={activeUrlReport.projectUrlId}
-                        latestRunId={activeUrlReport.historicalRuns[activeUrlReport.historicalRuns.length - 1]?.id}
-                        previousRunId={activeUrlReport.historicalRuns[activeUrlReport.historicalRuns.length - 2]?.id}
+                        latestRunId={
+                          activeUrlReport.historicalRuns[
+                            activeUrlReport.historicalRuns.length - 1
+                          ]?.id
+                        }
+                        previousRunId={
+                          activeUrlReport.historicalRuns[
+                            activeUrlReport.historicalRuns.length - 2
+                          ]?.id
+                        }
                         initialAiInsight={activeUrlReport.aiInsight}
                       />
                       <RegressionList
@@ -510,20 +733,23 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
                           resolved: activeUrlReport.opportunities.resolved,
                         }}
                       />
-                      {activeUrlReport.recommendations && activeUrlReport.recommendations.length > 0 && (
-                        <DeterministicRecommendationList recommendations={activeUrlReport.recommendations} />
-                      )}
+                      {activeUrlReport.recommendations &&
+                        activeUrlReport.recommendations.length > 0 && (
+                          <DeterministicRecommendationList
+                            recommendations={activeUrlReport.recommendations}
+                          />
+                        )}
                     </div>
                   )}
                 </div>
               </>
             )}
 
-            {activeTab === 'official' && (
-              <div style={styles.iframeWrapper}>
-                <iframe 
-                  src={`/api/audits/${audit.id}/html`} 
-                  style={styles.iframe} 
+            {activeTab === "official" && (
+              <div className="h-[calc(100vh-200px)] min-h-200 overflow-hidden rounded-lg border border-gray-200">
+                <iframe
+                  src={`/api/audits/${audit.id}/html`}
+                  className="h-full w-full border-0"
                   title="Lighthouse Official HTML Report"
                 />
               </div>
@@ -533,90 +759,6 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
       )}
     </div>
   );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: '1100px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
-  breadcrumb: { display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem', fontSize: '0.875rem' },
-  back: { color: '#6b7280', textDecoration: 'none' },
-  sep: { color: '#d1d5db' },
-  pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' },
-  title: { margin: '0 0 0.25rem', fontSize: '1.5rem', fontWeight: 700, color: '#111827' },
-  urlLink: { color: '#2563eb', textDecoration: 'none', fontSize: '0.9rem', wordBreak: 'break-all', fontWeight: 500 },
-  failedBadge: { background: '#fee2e2', color: '#991b1b', padding: '0.3rem 0.75rem', borderRadius: '6px', fontSize: '0.875rem', fontWeight: 600 },
-  rerunBtn: { background: '#f3f4f6', color: '#374151', padding: '0.4rem 0.9rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500, border: '1px solid #e5e7eb', transition: 'background 0.2s' },
-  deviceTabContainer: {
-    display: 'flex',
-    border: '1px solid #e2e8f0',
-    borderRadius: '8px',
-    backgroundColor: '#f1f5f9',
-    padding: '3px',
-    alignSelf: 'flex-start',
-    width: 'fit-content',
-    marginBottom: '1.5rem',
-  },
-  deviceTab: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '0.4rem 1.2rem',
-    border: 'none',
-    backgroundColor: 'transparent',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    color: '#64748b',
-    fontWeight: 600,
-    borderRadius: '6px',
-    transition: 'all 0.2s',
-  },
-  deviceTabActive: {
-    backgroundColor: '#fff',
-    color: '#0f172a',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)',
-  },
-  errorBox: { background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1.25rem', color: '#991b1b', fontWeight: 500 },
-  tabContainer: {
-    display: 'flex',
-    borderBottom: '2px solid #e5e7eb',
-    gap: '2.5rem',
-    marginBottom: '1rem'
-  },
-  tabBtn: {
-    background: 'none',
-    border: 'none',
-    borderBottom: '3px solid transparent',
-    padding: '0.75rem 0',
-    fontSize: '1rem',
-    fontWeight: 600,
-    color: '#6b7280',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    marginBottom: '-2px'
-  },
-  activeTab: {
-    color: '#2563eb',
-    borderBottomColor: '#2563eb'
-  },
-  scoresGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2.5rem' },
-  scoreCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' },
-  section: { marginBottom: '3rem' },
-  sectionTitle: { margin: '0 0 1.25rem', fontSize: '1.2rem', fontWeight: 600, color: '#111827' },
-  vitalsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' },
-  vitalCard: { borderRadius: '12px', padding: '1.25rem', textAlign: 'center', border: '1px solid rgba(0,0,0,0.05)' },
-  opportunitiesTable: { border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' },
-  oppRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: '1px solid #f3f4f6', gap: '1rem' },
-  savingsBadge: { display: 'inline-flex', alignItems: 'center', background: '#d1fae5', color: '#065f46', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600 },
-  aiSummaryHeader: { display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' },
-  aiIconWrapper: { background: '#ede9fe', padding: '0.5rem', borderRadius: '8px', display: 'flex' },
-  aiSummaryContainer: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem 2rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' },
-  markdownH1: { margin: '0 0 1rem', fontSize: '1.25rem', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' },
-  markdownH2: { margin: '1.5rem 0 0.75rem', fontSize: '1.1rem', color: '#334155', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' },
-  markdownP: { margin: '0.5rem 0', fontSize: '0.95rem', color: '#475569', lineHeight: 1.6 },
-  markdownList: { margin: '0.5rem 0 1.5rem', paddingLeft: '1.5rem', color: '#475569' },
-  markdownListItem: { margin: '0.4rem 0', lineHeight: 1.6, fontSize: '0.95rem' },
-  agentSectionHeader: { marginBottom: '1.25rem' },
-  agentSectionDesc: { margin: '0.5rem 0 0', fontSize: '0.9rem', color: '#6b7280', maxWidth: '700px', lineHeight: 1.5 },
-  insufficientDataCard: { padding: "2rem", backgroundColor: "#f9fafb", border: "1px dashed #d1d5db", borderRadius: "12px", textAlign: "center" },
-  twoColumnGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "1.5rem" },
-  iframeWrapper: { width: '100%', height: 'calc(100vh - 200px)', minHeight: '800px', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' },
-  iframe: { width: '100%', height: '100%', border: 'none', backgroundColor: '#fff' }
 };
+
+export default AuditDetailPage;

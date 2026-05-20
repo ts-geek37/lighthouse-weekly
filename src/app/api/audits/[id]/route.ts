@@ -4,14 +4,10 @@ import { Opportunity, AgentPrompt } from '@/types';
 import { extractAdvancedDiagnostics } from '@/lib/audit/metrics-extractor';
 import { childLogger } from '@/lib/logger';
 
-/**
- * GET /api/audits/:id
- * Returns full detail for a single audit run including opportunities JSON.
- */
-export async function GET(
+export const GET = async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   try {
     const run = await prisma.auditRun.findUnique({
@@ -30,8 +26,8 @@ export async function GET(
       ? (run.opportunitiesJson as unknown as Opportunity[])
       : [];
 
-    const agentPrompts: AgentPrompt[] = Array.isArray((run as any).agentPromptsJson)
-      ? ((run as any).agentPromptsJson as AgentPrompt[])
+    const agentPrompts: AgentPrompt[] = Array.isArray(run.agentPromptsJson)
+      ? (run.agentPromptsJson as unknown as AgentPrompt[])
       : [];
 
     let siblingRunId: string | null = null;
@@ -100,4 +96,4 @@ export async function GET(
     console.error(`GET /api/audits/${id} error:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};

@@ -19,7 +19,7 @@ describe('loadConfig', () => {
   });
 
   // Helper to set all required vars
-  function setRequiredVars(overrides: Partial<Record<string, string>> = {}) {
+  const setRequiredVars = (overrides: Partial<Record<string, string>> = {}) => {
     process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/testdb';
     process.env.GROQ_API_KEY = 'gsk_test_key_abc123';
     process.env.REPORT_OUTPUT_DIR = './reports';

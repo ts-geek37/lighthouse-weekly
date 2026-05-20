@@ -10,24 +10,26 @@ export interface AppConfig {
   markdownOutputEnabled: boolean;
 }
 
-export function loadConfig(): AppConfig {
+export const loadConfig = (): AppConfig => {
   const missing: string[] = [];
 
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) missing.push('DATABASE_URL');
+  if (!databaseUrl) missing.push("DATABASE_URL");
 
   const groqApiKey = process.env.GROQ_API_KEY;
-  if (!groqApiKey) missing.push('GROQ_API_KEY');
+  if (!groqApiKey) missing.push("GROQ_API_KEY");
 
   const reportOutputDir = process.env.REPORT_OUTPUT_DIR;
-  if (!reportOutputDir) missing.push('REPORT_OUTPUT_DIR');
+  if (!reportOutputDir) missing.push("REPORT_OUTPUT_DIR");
 
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    throw new Error(
+      `Missing required environment variables: ${missing.join(", ")}`,
+    );
   }
 
-  const auditSchedule = process.env.AUDIT_SCHEDULE ?? '0 6 * * 1';
-  const markdownOutputEnabled = process.env.MARKDOWN_OUTPUT_ENABLED === 'true';
+  const auditSchedule = process.env.AUDIT_SCHEDULE ?? "0 6 * * 1";
+  const markdownOutputEnabled = process.env.MARKDOWN_OUTPUT_ENABLED === "true";
 
   return {
     databaseUrl: databaseUrl as string,
@@ -36,4 +38,4 @@ export function loadConfig(): AppConfig {
     reportOutputDir: reportOutputDir as string,
     markdownOutputEnabled,
   };
-}
+};

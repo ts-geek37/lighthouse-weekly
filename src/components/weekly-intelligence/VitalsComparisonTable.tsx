@@ -1,4 +1,3 @@
-import React from "react";
 import { MetricChange } from "@/lib/comparison/comparisonTypes";
 
 interface VitalsComparisonTableProps {
@@ -11,149 +10,97 @@ interface VitalsComparisonTableProps {
   };
 }
 
-export function VitalsComparisonTable({ metrics }: VitalsComparisonTableProps) {
-  const keys = ["lcp", "cls", "inpOrTbt", "fcp", "ttfb"];
-  
-  const sortedVitals = keys
-    .map((k) => metrics[k as keyof typeof metrics])
+type MetricKey = keyof VitalsComparisonTableProps["metrics"];
+
+const metricKeys: MetricKey[] = ["lcp", "cls", "inpOrTbt", "fcp", "ttfb"];
+const statusOrder: Record<MetricChange["status"], number> = {
+  critical: 0,
+  regressed: 1,
+  stable: 2,
+  improved: 3,
+};
+
+const statusBadgeClass = (status: MetricChange["status"]): string => {
+  const classes: Record<MetricChange["status"], string> = {
+    improved: "bg-emerald-100 text-emerald-800",
+    regressed: "bg-amber-100 text-amber-800",
+    critical: "bg-red-100 text-red-800",
+    stable: "bg-gray-100 text-gray-600",
+  };
+  return classes[status];
+};
+
+const statusLabel = (status: MetricChange["status"]): string =>
+  status === "improved" ? "Improved"
+    : status === "regressed" ? "Regressed"
+      : status === "critical" ? "Critical"
+        : "Stable";
+
+const changeClass = (status: MetricChange["status"]): string =>
+  status === "improved" ? "text-emerald-600"
+    : status === "regressed" || status === "critical" ? "text-red-600"
+      : "text-gray-600";
+
+const formatVal = (val: number | null, key: string): string => {
+  if (val === null) return "N/A";
+  if (key === "cls") return val.toFixed(3);
+  return `${Math.round(val)}ms`;
+};
+
+const formatDelta = (delta: number | null, key: string, status: MetricChange["status"]): string => {
+  if (delta === null || status === "stable") return "-";
+  const sign = delta > 0 ? "+" : "";
+  if (key === "cls") return `${sign}${delta.toFixed(3)}`;
+  return `${sign}${Math.round(delta)}ms`;
+};
+
+export const VitalsComparisonTable = ({ metrics }: VitalsComparisonTableProps) => {
+  const sortedVitals = metricKeys
+    .map(key => metrics[key])
     .filter(Boolean)
-    .sort((a, b) => {
-      const statusOrder = { critical: 0, regressed: 1, stable: 2, improved: 3 };
-      return statusOrder[a.status] - statusOrder[b.status];
-    });
-
-  function getStatusBadge(status: string) {
-    let color = "#4b5563";
-    let bg = "#f3f4f6";
-    let text = "Stable";
-
-    if (status === "improved") {
-      color = "#047857";
-      bg = "#d1fae5";
-      text = "Improved";
-    } else if (status === "regressed") {
-      color = "#b45309";
-      bg = "#fef3c7";
-      text = "Regressed";
-    } else if (status === "critical") {
-      color = "#b91c1c";
-      bg = "#fee2e2";
-      text = "Critical";
-    }
-
-    return (
-      <span
-        style={{
-          display: "inline-block",
-          padding: "0.15rem 0.5rem",
-          borderRadius: "4px",
-          fontSize: "0.75rem",
-          fontWeight: 600,
-          color,
-          backgroundColor: bg,
-        }}
-      >
-        {text}
-      </span>
-    );
-  }
-
-  function formatVal(val: number | null, key: string): string {
-    if (val === null) return "N/A";
-    if (key === "cls") return val.toFixed(3);
-    return `${Math.round(val)}ms`;
-  }
-
-  function formatDelta(delta: number | null, key: string, status: string): string {
-    if (delta === null || status === "stable") return "—";
-    const sign = delta > 0 ? "+" : "";
-    if (key === "cls") return `${sign}${delta.toFixed(3)}`;
-    return `${sign}${Math.round(delta)}ms`;
-  }
+    .sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
 
   return (
-    <div style={styles.container}>
-      <h3 style={styles.tableTitle}>Core Web Vitals Comparison</h3>
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>Metric</th>
-            <th style={styles.th}>Previous Week</th>
-            <th style={styles.th}>Current Week</th>
-            <th style={styles.th}>Delta</th>
-            <th style={styles.th}>Change %</th>
-            <th style={styles.th}>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedVitals.map((v) => {
-            const pct = v.percentage;
-            const pctStr = pct !== null && v.status !== "stable" ? `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%` : "—";
-            return (
-              <tr key={v.metric} style={styles.tr}>
-                <td style={{ ...styles.td, fontWeight: 600, color: "#111827" }}>{v.label}</td>
-                <td style={styles.td}>{formatVal(v.previous, v.metric)}</td>
-                <td style={styles.td}>{formatVal(v.current, v.metric)}</td>
-                <td style={{ 
-                  ...styles.td, 
-                  fontWeight: 500,
-                  color: v.status === "improved" ? "#059669" : v.status === "regressed" || v.status === "critical" ? "#dc2626" : "#4b5563" 
-                }}>
-                  {formatDelta(v.delta, v.metric, v.status)}
-                </td>
-                <td style={{ 
-                  ...styles.td, 
-                  color: v.status === "improved" ? "#059669" : v.status === "regressed" || v.status === "critical" ? "#dc2626" : "#4b5563" 
-                }}>
-                  {pctStr}
-                </td>
-                <td style={styles.td}>{getStatusBadge(v.status)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+    <section className="mb-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <h3 className="mb-4 text-base font-semibold text-gray-900">Core Web Vitals Comparison</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] border-collapse">
+          <thead>
+            <tr className="border-b-2 border-gray-200 bg-gray-50 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-3 py-2.5">Metric</th>
+              <th className="px-3 py-2.5">Previous Week</th>
+              <th className="px-3 py-2.5">Current Week</th>
+              <th className="px-3 py-2.5">Delta</th>
+              <th className="px-3 py-2.5">Change %</th>
+              <th className="px-3 py-2.5">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedVitals.map(vital => {
+              const pctStr = vital.percentage !== null && vital.status !== "stable"
+                ? `${vital.percentage > 0 ? "+" : ""}${vital.percentage.toFixed(1)}%`
+                : "-";
 
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    backgroundColor: "#fff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "8px",
-    padding: "1.25rem",
-    marginBottom: "1.5rem",
-    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
-  },
-  tableTitle: {
-    margin: "0 0 1rem",
-    fontSize: "1rem",
-    fontWeight: 600,
-    color: "#111827",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
-  th: {
-    textAlign: "left",
-    padding: "0.6rem 0.75rem",
-    borderBottom: "2px solid #e5e7eb",
-    fontWeight: 600,
-    fontSize: "0.7rem",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    backgroundColor: "#f9fafb",
-  },
-  tr: {
-    borderBottom: "1px solid #f3f4f6",
-  },
-  td: {
-    padding: "0.75rem",
-    fontSize: "0.85rem",
-    color: "#374151",
-    verticalAlign: "middle",
-  },
+              return (
+                <tr key={vital.metric} className="border-b border-gray-100 last:border-b-0">
+                  <td className="px-3 py-3 text-sm font-semibold text-gray-900">{vital.label}</td>
+                  <td className="px-3 py-3 text-sm text-gray-700">{formatVal(vital.previous, vital.metric)}</td>
+                  <td className="px-3 py-3 text-sm text-gray-700">{formatVal(vital.current, vital.metric)}</td>
+                  <td className={`px-3 py-3 text-sm font-medium ${changeClass(vital.status)}`}>
+                    {formatDelta(vital.delta, vital.metric, vital.status)}
+                  </td>
+                  <td className={`px-3 py-3 text-sm ${changeClass(vital.status)}`}>{pctStr}</td>
+                  <td className="px-3 py-3">
+                    <span className={`inline-block rounded px-2 py-1 text-xs font-semibold ${statusBadgeClass(vital.status)}`}>
+                      {statusLabel(vital.status)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
 };

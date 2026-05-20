@@ -6,7 +6,7 @@ import {
 } from "./comparisonTypes";
 import { Opportunity } from "@/types";
 
-export function buildComparisonPrompt(
+export const buildComparisonPrompt = (
   url: string,
   pageType: string,
   metrics: Record<string, MetricChange>,
@@ -15,7 +15,7 @@ export function buildComparisonPrompt(
   newOpps: Opportunity[],
   resolvedOpps: Opportunity[],
   recommendations: DeterministicRecommendation[]
-): { system: string; user: string } {
+): { system: string; user: string } => {
   const metricsBlock = Object.values(metrics)
     .map((m) => {
       const prevStr = m.previous !== null ? `${m.previous}${m.unit}` : "N/A";

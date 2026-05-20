@@ -1,81 +1,28 @@
-import React from 'react';
 import { ScreenshotThumbnailItem } from '@/types';
 
-export function FilmstripViewer({ thumbnails }: { thumbnails: ScreenshotThumbnailItem[] }) {
-  if (!thumbnails || thumbnails.length === 0) return null;
+interface FilmstripViewerProps {
+  thumbnails: ScreenshotThumbnailItem[];
+}
+
+export const FilmstripViewer = ({ thumbnails }: FilmstripViewerProps) => {
+  if (thumbnails.length === 0) return null;
 
   return (
-    <div style={styles.container}>
-      <h3 style={styles.title}>Visual Loading Progression (Filmstrip)</h3>
-      <div style={styles.scrollWrapper}>
-        <div style={styles.strip}>
-          {thumbnails.map((thumb, idx) => (
-            <div key={idx} style={styles.frame}>
-              <div style={styles.imgWrapper}>
+    <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h3 className="mb-5 text-lg font-semibold text-gray-900">Visual Loading Progression (Filmstrip)</h3>
+      <div className="overflow-x-auto pb-4 [scrollbar-color:#cbd5e1_transparent] [scrollbar-width:thin]">
+        <div className="flex min-w-max items-start gap-4">
+          {thumbnails.map(({ data, timing }, index) => (
+            <div key={`${timing}-${index}`} className="flex w-[120px] flex-col items-center gap-2">
+              <div className="aspect-[9/16] w-full overflow-hidden rounded-md border border-gray-200 bg-gray-50 shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={thumb.data} alt={`Frame at ${thumb.timing}ms`} style={styles.img} />
+                <img src={data} alt={`Frame at ${timing}ms`} className="h-full w-full object-cover" />
               </div>
-              <div style={styles.timing}>{thumb.timing}ms</div>
+              <div className="font-mono text-[0.8rem] font-medium text-gray-500">{timing}ms</div>
             </div>
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    marginBottom: '2rem',
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-  },
-  title: {
-    margin: '0 0 1.25rem',
-    fontSize: '1.1rem',
-    fontWeight: 600,
-    color: '#111827'
-  },
-  scrollWrapper: {
-    overflowX: 'auto',
-    paddingBottom: '1rem',
-    scrollbarWidth: 'thin',
-    scrollbarColor: '#cbd5e1 transparent'
-  },
-  strip: {
-    display: 'flex',
-    gap: '1rem',
-    alignItems: 'flex-start',
-    minWidth: 'min-content'
-  },
-  frame: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '0.5rem',
-    width: '120px'
-  },
-  imgWrapper: {
-    width: '100%',
-    aspectRatio: '9/16',
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
-    overflow: 'hidden',
-    background: '#f9fafb',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-  },
-  img: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover'
-  },
-  timing: {
-    fontSize: '0.8rem',
-    color: '#6b7280',
-    fontWeight: 500,
-    fontFamily: 'monospace'
-  }
 };

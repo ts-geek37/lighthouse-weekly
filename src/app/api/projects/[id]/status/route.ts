@@ -12,8 +12,7 @@ interface PrismaProjectUrl {
   createdAt: Date;
 }
 
-function mapProjectToResponse(project: Project & { urls: PrismaProjectUrl[] }): ProjectResponse {
-  return {
+const mapProjectToResponse = (project: Project & { urls: PrismaProjectUrl[] }): ProjectResponse => ({
     id: project.id,
     title: project.title,
     description: project.description,
@@ -31,13 +30,12 @@ function mapProjectToResponse(project: Project & { urls: PrismaProjectUrl[] }): 
       priority: u.priority,
       createdAt: u.createdAt.toISOString(),
     })),
-  };
-}
+});
 
-export async function PATCH(
+export const PATCH = async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   try {
     const body = await request.json();
@@ -68,4 +66,4 @@ export async function PATCH(
     console.error(`PATCH /api/projects/${id}/status error:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};

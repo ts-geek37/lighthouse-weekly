@@ -19,10 +19,10 @@ export type AuditRunnerResult =
  * Launches headless Chrome via chrome-launcher, runs the audit, then kills Chrome.
  * Retries up to maxRetries times on failure.
  */
-export async function runAudit(
+export const runAudit = async(
   options: AuditRunnerOptions,
   log: Logger
-): Promise<AuditRunnerResult> {
+): Promise<AuditRunnerResult> => {
   const { url, device = 'mobile', timeoutMs = 60_000, maxRetries = 2 } = options;
 
   let lastError = '';

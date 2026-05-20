@@ -1,20 +1,16 @@
-import { prisma } from "@/lib/prisma";
-import Groq from "groq-sdk";
 import { childLogger } from "@/lib/logger";
-import { Opportunity, AgentPrompt, MetricSituation } from "@/types";
+import { prisma } from "@/lib/prisma";
+import { AgentPrompt, MetricSituation, Opportunity } from "@/types";
+import Groq from "groq-sdk";
 import { getInvestigationSteps } from "../audit/ai-summarizer";
-import {
-  UrlComparisonResult,
-  ProjectComparisonReport,
-  MetricChange,
-  RegressionItem,
-  ImprovementItem,
-  DeterministicRecommendation,
-} from "./comparisonTypes";
 import { compareAllMetrics } from "./compareMetrics";
 import {
-  diffOpportunities,
+  ProjectComparisonReport,
+  UrlComparisonResult,
+} from "./comparisonTypes";
+import {
   detectRegressionsAndImprovements,
+  diffOpportunities,
   generateRecommendations,
 } from "./detectRegressions";
 import { buildComparisonPrompt } from "./generateComparisonPrompt";
@@ -25,7 +21,10 @@ export class WeeklyIntelligenceService {
   /**
    * Generates or fetches the numerical weekly performance intelligence report for a project.
    */
-  static async getComparisonReport(projectId: string, device: "mobile" | "desktop" = "mobile"): Promise<ProjectComparisonReport> {
+  static async getComparisonReport(
+    projectId: string,
+    device: "mobile" | "desktop" = "mobile",
+  ): Promise<ProjectComparisonReport> {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -68,14 +67,16 @@ export class WeeklyIntelligenceService {
         take: 10,
       });
 
-      const historicalRuns = historicalRunsData.map((r) => ({
-        id: r.id,
-        createdAt: r.createdAt,
-        performanceScore: r.performanceScore,
-        lcp: r.lcp,
-        cls: r.cls,
-        inpOrTbt: r.inpOrTbt,
-      })).reverse(); // Oldest first for chart rendering
+      const historicalRuns = historicalRunsData
+        .map((r) => ({
+          id: r.id,
+          createdAt: r.createdAt,
+          performanceScore: r.performanceScore,
+          lcp: r.lcp,
+          cls: r.cls,
+          inpOrTbt: r.inpOrTbt,
+        }))
+        .reverse(); // Oldest first for chart rendering
 
       if (runs.length < 2) {
         urlReports.push({
@@ -101,26 +102,28 @@ export class WeeklyIntelligenceService {
       const previousRun = runs[1];
 
       // Cast opportunitiesJson
-      const prevOpps: Opportunity[] = JSON.parse(JSON.stringify(previousRun.opportunitiesJson)) || [];
-      const currOpps: Opportunity[] = JSON.parse(JSON.stringify(latestRun.opportunitiesJson)) || [];
+      const prevOpps: Opportunity[] =
+        JSON.parse(JSON.stringify(previousRun.opportunitiesJson)) || [];
+      const currOpps: Opportunity[] =
+        JSON.parse(JSON.stringify(latestRun.opportunitiesJson)) || [];
 
       // 3. Run comparison calculations
       const metricsMap = compareAllMetrics(
         previousRun as any,
-        latestRun as any
+        latestRun as any,
       ) as UrlComparisonResult["metrics"];
 
       const { newOpps, resolvedOpps } = diffOpportunities(prevOpps, currOpps);
 
       const { regressions, improvements } = detectRegressionsAndImprovements(
         metricsMap!,
-        newOpps
+        newOpps,
       );
 
       const recommendations = generateRecommendations(
         metricsMap!,
         currOpps,
-        newOpps
+        newOpps,
       );
 
       // 4. Handle snapshot caching
@@ -149,7 +152,10 @@ export class WeeklyIntelligenceService {
             },
           });
         } catch (err) {
-          log.warn({ err, projectUrlId: projectUrl.id }, "Concurrency error writing snapshot — ignoring");
+          log.warn(
+            { err, projectUrlId: projectUrl.id },
+            "Concurrency error writing snapshot — ignoring",
+          );
         }
       }
 
@@ -168,10 +174,22 @@ export class WeeklyIntelligenceService {
           const change = metricsMap[reg.metric as keyof typeof metricsMap];
           if (!change) continue;
 
-          const prevStr = change.previous !== null ? `${change.previous}${change.unit}` : "N/A";
-          const currStr = change.current !== null ? `${change.current}${change.unit}` : "N/A";
-          const deltaStr = change.delta !== null ? (change.delta > 0 ? `+${change.delta}` : `${change.delta}`) : "0";
-          const pctStr = change.percentage !== null ? ` (${change.percentage > 0 ? `+${change.percentage}` : `${change.percentage}`}% change)` : "";
+          const prevStr =
+            change.previous !== null
+              ? `${change.previous}${change.unit}`
+              : "N/A";
+          const currStr =
+            change.current !== null ? `${change.current}${change.unit}` : "N/A";
+          const deltaStr =
+            change.delta !== null
+              ? change.delta > 0
+                ? `+${change.delta}`
+                : `${change.delta}`
+              : "0";
+          const pctStr =
+            change.percentage !== null
+              ? ` (${change.percentage > 0 ? `+${change.percentage}` : `${change.percentage}`}% change)`
+              : "";
 
           const metricAbbrev = getMetricAbbrev(reg.metric);
           const steps = getRegressionSteps(reg.metric);
@@ -273,26 +291,33 @@ Provide a structured engineering report matching the exact format below:
           opp.id === "unused-javascript"
             ? "CRITICAL"
             : opp.id === "render-blocking-resources"
-            ? "CRITICAL"
-            : ("GOOD" as MetricSituation);
+              ? "CRITICAL"
+              : ("GOOD" as MetricSituation);
 
-        const steps = getInvestigationSteps(opp.id, {
-          performanceScore: null,
-          accessibilityScore: null,
-          seoScore: null,
-          bestPracticesScore: null,
-          lcp: null,
-          cls: null,
-          inpOrTbt: null,
-          fcp: null,
-          speedIndex: null,
-          ttfb: null,
-          opportunities: [],
-        }, oppSituation);
+        const steps = getInvestigationSteps(
+          opp.id,
+          {
+            performanceScore: null,
+            accessibilityScore: null,
+            seoScore: null,
+            bestPracticesScore: null,
+            lcp: null,
+            cls: null,
+            inpOrTbt: null,
+            fcp: null,
+            speedIndex: null,
+            ttfb: null,
+            opportunities: [],
+          },
+          oppSituation,
+        );
 
         const savings: string[] = [];
         if (opp.savingsMs) savings.push(`~${opp.savingsMs}ms load time`);
-        if (opp.savingsBytes) savings.push(`~${Math.round(opp.savingsBytes / 1024)}KB transfer size`);
+        if (opp.savingsBytes)
+          savings.push(
+            `~${Math.round(opp.savingsBytes / 1024)}KB transfer size`,
+          );
         const savingsStr = savings.length ? savings.join(" / ") : "N/A";
         const oppMetricImpact = getOpportunityMetric(opp.id);
 
@@ -412,7 +437,7 @@ Provide a structured engineering report matching the exact format below:
   static async getOrGenerateAiInsight(
     projectUrlId: string,
     latestRunId: string,
-    previousRunId: string
+    previousRunId: string,
   ): Promise<string> {
     const snapshot = await prisma.weeklyIntelligenceSnapshot.findUnique({
       where: {
@@ -428,34 +453,55 @@ Provide a structured engineering report matching the exact format below:
     });
 
     if (!snapshot) {
-      throw new Error(`Snapshot not found for URL ID: ${projectUrlId}, Latest: ${latestRunId}, Previous: ${previousRunId}`);
+      throw new Error(
+        `Snapshot not found for URL ID: ${projectUrlId}, Latest: ${latestRunId}, Previous: ${previousRunId}`,
+      );
     }
 
     if (snapshot.aiInsight) {
       return snapshot.aiInsight;
     }
 
-    const latestRun = await prisma.auditRun.findUnique({ where: { id: latestRunId } });
-    const previousRun = await prisma.auditRun.findUnique({ where: { id: previousRunId } });
+    const latestRun = await prisma.auditRun.findUnique({
+      where: { id: latestRunId },
+    });
+    const previousRun = await prisma.auditRun.findUnique({
+      where: { id: previousRunId },
+    });
 
     if (!latestRun || !previousRun) {
       throw new Error("Audit runs for snapshot not found");
     }
 
-    const prevOpps: Opportunity[] = JSON.parse(JSON.stringify(previousRun.opportunitiesJson)) || [];
-    const currOpps: Opportunity[] = JSON.parse(JSON.stringify(latestRun.opportunitiesJson)) || [];
+    const prevOpps: Opportunity[] =
+      JSON.parse(JSON.stringify(previousRun.opportunitiesJson)) || [];
+    const currOpps: Opportunity[] =
+      JSON.parse(JSON.stringify(latestRun.opportunitiesJson)) || [];
 
-    const metricsMap = compareAllMetrics(previousRun as any, latestRun as any) as UrlComparisonResult["metrics"];
+    const metricsMap = compareAllMetrics(
+      previousRun as any,
+      latestRun as any,
+    ) as UrlComparisonResult["metrics"];
     const { newOpps, resolvedOpps } = diffOpportunities(prevOpps, currOpps);
-    const { regressions, improvements } = detectRegressionsAndImprovements(metricsMap!, newOpps);
-    const recommendations = generateRecommendations(metricsMap!, currOpps, newOpps);
+    const { regressions, improvements } = detectRegressionsAndImprovements(
+      metricsMap!,
+      newOpps,
+    );
+    const recommendations = generateRecommendations(
+      metricsMap!,
+      currOpps,
+      newOpps,
+    );
 
     // Call Groq API
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      log.warn("GROQ_API_KEY is not defined in environment variables — returning mock summary");
-      const fallbackSummary = "## Executive Summary\nPerformance analysis could not be generated because the AI service API key is missing. Please check your environment variables.\n\n## Performance Analysis & Hypotheses\nUnable to construct hypotheses without AI.\n\n## Prioritized Recommended Actions\n1. Review the deterministic recommendations below for details.\n\nAnalysis Confidence: LOW - AI key missing";
-      
+      log.warn(
+        "GROQ_API_KEY is not defined in environment variables — returning mock summary",
+      );
+      const fallbackSummary =
+        "## Executive Summary\nPerformance analysis could not be generated because the AI service API key is missing. Please check your environment variables.\n\n## Performance Analysis & Hypotheses\nUnable to construct hypotheses without AI.\n\n## Prioritized Recommended Actions\n1. Review the deterministic recommendations below for details.\n\nAnalysis Confidence: LOW - AI key missing";
+
       await prisma.weeklyIntelligenceSnapshot.update({
         where: { id: snapshot.id },
         data: { aiInsight: fallbackSummary },
@@ -472,7 +518,7 @@ Provide a structured engineering report matching the exact format below:
       improvements,
       newOpps,
       resolvedOpps,
-      recommendations
+      recommendations,
     );
 
     try {
@@ -489,7 +535,9 @@ Provide a structured engineering report matching the exact format below:
       // console.log("Completion tokens:", completion.usage?.completion_tokens);
       // console.log("Total tokens:", completion.usage?.total_tokens);
 
-      const aiInsight = completion.choices[0]?.message?.content || "Failed to generate AI insights.";
+      const aiInsight =
+        completion.choices[0]?.message?.content ||
+        "Failed to generate AI insights.";
 
       await prisma.weeklyIntelligenceSnapshot.update({
         where: { id: snapshot.id },
@@ -499,12 +547,14 @@ Provide a structured engineering report matching the exact format below:
       return aiInsight;
     } catch (err) {
       log.error({ err }, "Failed to generate AI insights via Groq");
-      throw new Error(`Groq LLM call failed: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(
+        `Groq LLM call failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 }
 
-function getRegressionSteps(metric: string): string {
+const getRegressionSteps = (metric: string): string => {
   switch (metric) {
     case "lcp":
       return `- Bundle & asset differences: check for newly added script/stylesheet dependencies blocking critical path.
@@ -529,9 +579,9 @@ function getRegressionSteps(metric: string): string {
       return `- Codebase changes: check for changes introduced in files affecting the page rendering cycle.
 - Configurations: review any environment or dependency updates impacting the "${metric}" score.`;
   }
-}
+};
 
-function getMetricAbbrev(metric: string): string {
+const getMetricAbbrev = (metric: string): string => {
   switch (metric.toLowerCase()) {
     case "performance":
     case "performancescore":
@@ -561,9 +611,9 @@ function getMetricAbbrev(metric: string): string {
     default:
       return metric.toUpperCase();
   }
-}
+};
 
-function getOpportunityMetric(oppId: string): string {
+const getOpportunityMetric = (oppId: string): string => {
   switch (oppId) {
     case "unused-javascript":
     case "unused-css-rules":
@@ -587,4 +637,4 @@ function getOpportunityMetric(oppId: string): string {
     default:
       return "General Performance";
   }
-}
+};

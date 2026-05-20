@@ -7,10 +7,10 @@ import {
 } from "./comparisonTypes";
 import { calculateConfidence } from "./classifySeverity";
 
-export function detectRegressionsAndImprovements(
+export const detectRegressionsAndImprovements =(
   metrics: Record<string, MetricChange>,
   newOpps: Opportunity[]
-): { regressions: RegressionItem[]; improvements: ImprovementItem[] } {
+): { regressions: RegressionItem[]; improvements: ImprovementItem[] } => {
   const regressions: RegressionItem[] = [];
   const improvements: ImprovementItem[] = [];
 
@@ -72,10 +72,10 @@ export function detectRegressionsAndImprovements(
   return { regressions, improvements };
 }
 
-export function diffOpportunities(
+export const diffOpportunities = (
   prevOpps: Opportunity[],
   currOpps: Opportunity[]
-): { newOpps: Opportunity[]; resolvedOpps: Opportunity[] } {
+): { newOpps: Opportunity[]; resolvedOpps: Opportunity[] } => {
   const prevIds = new Set(prevOpps.map((o) => o.id));
   const currIds = new Set(currOpps.map((o) => o.id));
 
@@ -85,11 +85,11 @@ export function diffOpportunities(
   return { newOpps, resolvedOpps };
 }
 
-export function generateRecommendations(
+export const generateRecommendations = (
   metrics: Record<string, MetricChange>,
   currOpps: Opportunity[],
   newOpps: Opportunity[]
-): DeterministicRecommendation[] {
+): DeterministicRecommendation[] => {
   const recommendations: DeterministicRecommendation[] = [];
 
   const hasOpp = (id: string) => currOpps.some((o) => o.id === id);

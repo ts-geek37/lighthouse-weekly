@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WeeklyIntelligenceService } from "@/lib/comparison/intelligenceService";
 
-export async function GET(
+export const GET = async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const device = (searchParams.get("device") || "mobile") as "mobile" | "desktop";
@@ -23,4 +23,4 @@ export async function GET(
     }
     return NextResponse.json({ error: "Failed to generate weekly intelligence: " + message }, { status: 500 });
   }
-}
+};

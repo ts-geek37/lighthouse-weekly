@@ -6,7 +6,7 @@ import { childLogger, LogContext } from '../logger';
  * Creates a test logger that captures output lines in memory.
  * Uses the same configuration as the production logger.
  */
-function createTestLogger(context?: LogContext) {
+const createTestLogger = (context?: LogContext) => {
   const lines: string[] = [];
   const stream = new Writable({
     write(chunk, _encoding, callback) {

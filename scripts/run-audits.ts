@@ -22,7 +22,7 @@ import { sendReportEmail } from '../src/lib/mail';
 import { WeeklyIntelligenceService } from '../src/lib/comparison/intelligenceService';
 import { PipelineContext } from '../src/types';
 
-async function main(): Promise<void> {
+const main = async(): Promise<void> => {
   // ── 1. Validate configuration ─────────────────────────────────────────────
   let config;
   try {

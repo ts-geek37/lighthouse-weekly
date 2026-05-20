@@ -42,7 +42,7 @@ export interface RunAuditsResponse {
   desktop: RunAuditResponse;
 }
 
-async function executeAuditForDevice({
+const executeAuditForDevice = async({
   url,
   projectUrlId,
   projectId,
@@ -56,7 +56,7 @@ async function executeAuditForDevice({
   pageType: string;
   device: "mobile" | "desktop";
   log: Logger;
-}): Promise<RunAuditResponse> {
+}): Promise<RunAuditResponse> => {
   log.info({ url, projectUrlId, pageType, device }, `Starting on-demand ${device} audit`);
 
   // ── Run Lighthouse audit ──────────────────────────────────────────────────
@@ -282,7 +282,7 @@ async function executeAuditForDevice({
  *
  * Note: This runs Lighthouse synchronously. Expect 30–80s response time for both.
  */
-export async function POST(request: NextRequest) {
+export const POST = async(request: NextRequest) => {
   const log = childLogger({ stage: "on-demand-audit" });
 
   let body: RunAuditRequest;

@@ -1,18 +1,28 @@
-// Shared validation rules for project creation and updates
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
 
-/**
- * Validates an array of URL strings.
- * Checks for: max 5 URLs, valid absolute http/https URLs, no duplicates (case-insensitive).
- */
-export function validateProjectUrls(urls: string[]): { valid: boolean; errors: string[] } {
+interface ProjectFieldInput {
+  title?: string;
+  owner?: string;
+  environment?: string;
+  reportEmail?: string;
+}
+
+interface ProjectSubmissionInput extends ProjectFieldInput {
+  urls?: Array<{ url: string }>;
+}
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const validateProjectUrls = (urls: string[]): ValidationResult => {
   const errors: string[] = [];
 
-  // Rule 1: Maximum 5 URLs
   if (urls.length > 5) {
     errors.push('Maximum 5 URLs allowed per project');
   }
 
-  // Rule 2: Each URL must be a valid absolute http:// or https:// URL
   for (const url of urls) {
     try {
       const parsed = new URL(url);
@@ -24,7 +34,6 @@ export function validateProjectUrls(urls: string[]): { valid: boolean; errors: s
     }
   }
 
-  // Rule 3: No duplicate URLs (case-insensitive)
   const seen = new Map<string, string>();
   for (const url of urls) {
     const lower = url.toLowerCase();
@@ -36,41 +45,27 @@ export function validateProjectUrls(urls: string[]): { valid: boolean; errors: s
   }
 
   return { valid: errors.length === 0, errors };
-}
+};
 
-/**
- * Validates the required fields for a project.
- * Checks for: non-empty title, owner, environment; environment must be 'Production' or 'Staging'.
- */
-export function validateProjectFields(fields: {
-  title?: string;
-  owner?: string;
-  environment?: string;
-  reportEmail?: string;
-}): { valid: boolean; errors: string[] } {
+export const validateProjectFields = (fields: ProjectFieldInput): ValidationResult => {
   const errors: string[] = [];
 
-  // Rule 1: title is required and non-whitespace
   if (!fields.title || fields.title.trim() === '') {
     errors.push('title is required');
   }
 
-  // Rule 2: owner is required and non-whitespace
   if (!fields.owner || fields.owner.trim() === '') {
     errors.push('owner is required');
   }
 
-  // Rule 3: environment is required and non-whitespace
   if (!fields.environment || fields.environment.trim() === '') {
     errors.push('environment is required');
   } else if (fields.environment !== 'Production' && fields.environment !== 'Staging') {
-    // Rule 4: environment must be 'Production' or 'Staging'
     errors.push("environment must be 'Production' or 'Staging'");
   }
 
   if (fields.reportEmail && fields.reportEmail.trim() !== '') {
-    const emails = fields.reportEmail.split(',').map((e) => e.trim()).filter((e) => e !== '');
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emails = fields.reportEmail.split(',').map(email => email.trim()).filter(Boolean);
     
     if (emails.length === 0) {
       errors.push('reportEmail cannot be empty when provided');
@@ -84,18 +79,9 @@ export function validateProjectFields(fields: {
   }
 
   return { valid: errors.length === 0, errors };
-}
+};
 
-/**
- * Combines field and URL validation for a full project submission.
- */
-export function validateProjectSubmission(data: {
-  title?: string;
-  owner?: string;
-  environment?: string;
-  reportEmail?: string;
-  urls?: Array<{ url: string }>;
-}): { valid: boolean; errors: string[] } {
+export const validateProjectSubmission = (data: ProjectSubmissionInput): ValidationResult => {
   const fieldResult = validateProjectFields({
     title: data.title,
     owner: data.owner,
@@ -109,4 +95,4 @@ export function validateProjectSubmission(data: {
   const allErrors = [...fieldResult.errors, ...urlResult.errors];
 
   return { valid: allErrors.length === 0, errors: allErrors };
-}
+};

@@ -8,11 +8,11 @@ import { WeeklyReport, ProjectReport, UrlReport, Opportunity, Environment, Audit
  * Groups results by project, includes failed runs with null metrics.
  * Filters to only records with createdAt >= cycleStartedAt.
  */
-export async function generateReport(
+export const generateReport = async(
   auditRunIds: string[],
   cycleStartedAt: Date,
   log: Logger
-): Promise<WeeklyReport> {
+): Promise<WeeklyReport> => {
   log.info({ stage: 'report-generator', auditRunCount: auditRunIds.length }, 'Assembling weekly report');
 
   const auditRuns = await prisma.auditRun.findMany({

@@ -4,213 +4,251 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ScoreBadge } from '@/components/ScoreBadge';
 
+interface AuditSummary {
+  id: string;
+  url: string;
+  pageType: string;
+  projectTitle: string;
+  performanceScore: number | null;
+  accessibilityScore: number | null;
+  seoScore: number | null;
+  bestPracticesScore: number | null;
+  status: string;
+  createdAt: string;
+}
+
+interface ProjectSummary {
+  isActive: boolean;
+}
+
+interface AuditListResponse {
+  data?: AuditSummary[];
+  pagination?: {
+    total?: number;
+  };
+}
+
 interface DashboardStats {
   totalProjects: number;
   activeProjects: number;
   totalAudits: number;
-  recentAudits: Array<{
-    id: string;
-    url: string;
-    pageType: string;
-    projectTitle: string;
-    performanceScore: number | null;
-    accessibilityScore: number | null;
-    seoScore: number | null;
-    bestPracticesScore: number | null;
-    status: string;
-    createdAt: string;
-  }>;
-  lowScoreUrls: Array<{
-    id: string;
-    url: string;
-    pageType: string;
-    projectTitle: string;
-    performanceScore: number | null;
-    createdAt: string;
-  }>;
+  recentAudits: AuditSummary[];
+  lowScoreUrls: AuditSummary[];
 }
 
-export default function DashboardPage() {
+const fetchJson = async <T,>(url: string): Promise<T> => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+  return response.json() as Promise<T>;
+};
+
+const DashboardPage = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/projects').then(r => r.json()),
-      fetch('/api/audits?limit=5').then(r => r.json()),
-      fetch('/api/audits?limit=100').then(r => r.json()),
-    ])
-      .then(([projects, recentData, allData]) => {
-        const allAudits = allData?.data ?? [];
-        const lowScore = allAudits
-          .filter((a: any) => a.status === 'success' && a.performanceScore !== null && a.performanceScore < 50)
+    const loadStats = async () => {
+      try {
+        const [projects, recentData, allData] = await Promise.all([
+          fetchJson<ProjectSummary[]>('/api/projects'),
+          fetchJson<AuditListResponse>('/api/audits?limit=5'),
+          fetchJson<AuditListResponse>('/api/audits?limit=100'),
+        ]);
+
+        const allAudits = allData.data ?? [];
+        const lowScoreUrls = allAudits
+          .filter(({ status, performanceScore }) =>
+            status === 'success' && performanceScore !== null && performanceScore < 50,
+          )
           .slice(0, 5);
 
         setStats({
           totalProjects: projects.length,
-          activeProjects: projects.filter((p: any) => p.isActive).length,
-          totalAudits: allData?.pagination?.total ?? 0,
-          recentAudits: recentData?.data ?? [],
-          lowScoreUrls: lowScore,
+          activeProjects: projects.filter(({ isActive }) => isActive).length,
+          totalAudits: allData.pagination?.total ?? 0,
+          recentAudits: recentData.data ?? [],
+          lowScoreUrls,
         });
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+
+    loadStats().catch(() => setLoading(false));
   }, []);
 
-  if (loading) return (
-    <div style={styles.container}>
-      <p style={{ color: '#6b7280' }}>Loading dashboard…</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl p-8">
+        <p className="text-gray-500">Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  const attentionCount = stats?.lowScoreUrls.length ?? 0;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
+    <div className="mx-auto max-w-6xl p-6 sm:p-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 style={styles.title}>Lighthouse Monitor</h1>
-          <p style={styles.subtitle}>Weekly performance audits for your projects</p>
+          <h1 className="mb-1 text-3xl font-bold text-gray-900">Lighthouse Monitor</h1>
+          <p className="text-sm text-gray-500">Weekly performance audits for your projects</p>
         </div>
-        <Link href="/audits/new" style={styles.runBtn}>▶ Run Audit</Link>
+        <Link
+          href="/audits/new"
+          className="w-fit rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white no-underline transition hover:bg-blue-700"
+        >
+          ▶ Run Audit
+        </Link>
       </div>
 
-      {/* Stats row */}
-      <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <div style={styles.statValue}>{stats?.totalProjects ?? 0}</div>
-          <div style={styles.statLabel}>Total Projects</div>
-          <Link href="/projects" style={styles.statLink}>Manage →</Link>
-        </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statValue, color: '#065f46' }}>{stats?.activeProjects ?? 0}</div>
-          <div style={styles.statLabel}>Active Projects</div>
-          <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>monitored weekly</div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statValue}>{stats?.totalAudits ?? 0}</div>
-          <div style={styles.statLabel}>Total Audits</div>
-          <Link href="/audits" style={styles.statLink}>View history →</Link>
-        </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statValue, color: stats?.lowScoreUrls.length ? '#991b1b' : '#065f46' }}>
-            {stats?.lowScoreUrls.length ?? 0}
-          </div>
-          <div style={styles.statLabel}>URLs Below 50</div>
-          <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>need attention</div>
-        </div>
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Total Projects" value={stats?.totalProjects ?? 0}>
+          <Link href="/projects" className="text-xs text-blue-600 no-underline hover:underline">
+            Manage →
+          </Link>
+        </StatCard>
+        <StatCard label="Active Projects" value={stats?.activeProjects ?? 0} tone="good">
+          <span className="text-xs text-gray-400">monitored weekly</span>
+        </StatCard>
+        <StatCard label="Total Audits" value={stats?.totalAudits ?? 0}>
+          <Link href="/audits" className="text-xs text-blue-600 no-underline hover:underline">
+            View history →
+          </Link>
+        </StatCard>
+        <StatCard label="URLs Below 50" value={attentionCount} tone={attentionCount ? 'bad' : 'good'}>
+          <span className="text-xs text-gray-400">need attention</span>
+        </StatCard>
       </div>
 
-      <div style={styles.twoCol}>
-        {/* Recent audits */}
-        <div style={styles.panel}>
-          <div style={styles.panelHeader}>
-            <h2 style={styles.panelTitle}>Recent Audits</h2>
-            <Link href="/audits" style={styles.panelLink}>View all →</Link>
-          </div>
+      <div className="mb-8 grid gap-6 lg:grid-cols-2">
+        <Panel
+          title="Recent Audits"
+          action={<Link href="/audits" className="text-xs text-blue-600 no-underline hover:underline">View all →</Link>}
+        >
           {!stats?.recentAudits.length ? (
-            <p style={styles.empty}>No audits yet. <Link href="/audits/new">Run one →</Link></p>
+            <p className="text-sm text-gray-400">
+              No audits yet. <Link href="/audits/new" className="text-blue-600">Run one →</Link>
+            </p>
           ) : (
             <div>
-              {stats.recentAudits.map(run => (
-                <Link key={run.id} href={`/audits/${run.id}`} style={styles.auditRow}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                      <span style={styles.pageTypeBadge}>{run.pageType}</span>
-                      {run.projectTitle}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                      {run.url}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexShrink: 0 }}>
-                    {run.status === 'failed'
-                      ? <span style={{ fontSize: '0.75rem', color: '#991b1b', background: '#fee2e2', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>Failed</span>
-                      : <ScoreBadge score={run.performanceScore} size="sm" />}
-                    <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-                      {new Date(run.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </Link>
-              ))}
+              {stats.recentAudits.map(run => <AuditRow key={run.id} run={run} showDate />)}
             </div>
           )}
-        </div>
+        </Panel>
 
-        {/* Needs attention */}
-        <div style={styles.panel}>
-          <div style={styles.panelHeader}>
-            <h2 style={styles.panelTitle}>⚠️ Needs Attention</h2>
-            <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Performance &lt; 50</span>
-          </div>
+        <Panel
+          title="⚠️ Needs Attention"
+          action={<span className="text-xs text-gray-400">Performance &lt; 50</span>}
+        >
           {!stats?.lowScoreUrls.length ? (
-            <div style={styles.allGood}>
-              <div style={{ fontSize: '2rem' }}>✅</div>
-              <p style={{ margin: '0.5rem 0 0', color: '#065f46', fontWeight: 500 }}>All URLs performing well</p>
+            <div className="py-8 text-center">
+              <div className="text-3xl">✅</div>
+              <p className="mt-2 font-medium text-emerald-800">All URLs performing well</p>
             </div>
           ) : (
             <div>
-              {stats.lowScoreUrls.map(run => (
-                <Link key={run.id} href={`/audits/${run.id}`} style={styles.auditRow}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                      <span style={styles.pageTypeBadge}>{run.pageType}</span>
-                      {run.projectTitle}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                      {run.url}
-                    </div>
-                  </div>
-                  <ScoreBadge score={run.performanceScore} size="sm" />
-                </Link>
-              ))}
+              {stats.lowScoreUrls.map(run => <AuditRow key={run.id} run={run} />)}
             </div>
           )}
-        </div>
+        </Panel>
       </div>
 
-      {/* Quick links */}
-      <div style={styles.quickLinks}>
-        <Link href="/projects/new" style={styles.quickLink}>
-          <span style={{ fontSize: '1.5rem' }}>➕</span>
-          <span>Add Project</span>
-        </Link>
-        <Link href="/audits/new" style={styles.quickLink}>
-          <span style={{ fontSize: '1.5rem' }}>▶</span>
-          <span>Run Audit</span>
-        </Link>
-        <Link href="/projects" style={styles.quickLink}>
-          <span style={{ fontSize: '1.5rem' }}>📋</span>
-          <span>All Projects</span>
-        </Link>
-        <Link href="/audits" style={styles.quickLink}>
-          <span style={{ fontSize: '1.5rem' }}>📊</span>
-          <span>Audit History</span>
-        </Link>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <QuickLink href="/projects/new" icon="➕" label="Add Project" />
+        <QuickLink href="/audits/new" icon="▶" label="Run Audit" />
+        <QuickLink href="/projects" icon="📋" label="All Projects" />
+        <QuickLink href="/audits" icon="📊" label="Audit History" />
       </div>
     </div>
   );
+};
+
+interface StatCardProps {
+  label: string;
+  value: number;
+  tone?: 'default' | 'good' | 'bad';
+  children: React.ReactNode;
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: '1100px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' },
-  title: { margin: '0 0 0.25rem', fontSize: '1.75rem', fontWeight: 700, color: '#111827' },
-  subtitle: { margin: 0, color: '#6b7280', fontSize: '0.9rem' },
-  runBtn: { background: '#2563eb', color: '#fff', padding: '0.55rem 1.25rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' },
-  statCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.25rem' },
-  statValue: { fontSize: '2rem', fontWeight: 700, color: '#111827', lineHeight: 1 },
-  statLabel: { fontSize: '0.8rem', color: '#6b7280', margin: '0.4rem 0 0.5rem', textTransform: 'uppercase' as const, letterSpacing: '0.04em' },
-  statLink: { fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none' },
-  twoCol: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' },
-  panel: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.25rem' },
-  panelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' },
-  panelTitle: { margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#111827' },
-  panelLink: { fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none' },
-  empty: { color: '#9ca3af', fontSize: '0.875rem' },
-  auditRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: '1px solid #f3f4f6', textDecoration: 'none', gap: '0.75rem' },
-  pageTypeBadge: { display: 'inline-block', background: '#f3f4f6', color: '#9ca3af', padding: '0.1rem 0.4rem', borderRadius: '3px', fontSize: '0.65rem', marginRight: '0.35rem' },
-  allGood: { textAlign: 'center' as const, padding: '2rem 1rem' },
-  quickLinks: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' },
-  quickLink: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '0.5rem', padding: '1.25rem', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', textDecoration: 'none', color: '#374151', fontSize: '0.875rem', fontWeight: 500 },
+const statToneClass: Record<NonNullable<StatCardProps['tone']>, string> = {
+  default: 'text-gray-900',
+  good: 'text-emerald-800',
+  bad: 'text-red-800',
 };
+
+const StatCard = ({ label, value, tone = 'default', children }: StatCardProps) => (
+  <div className="rounded-lg border border-gray-200 bg-white p-5">
+    <div className={`text-3xl font-bold leading-none ${statToneClass[tone]}`}>{value}</div>
+    <div className="mb-2 mt-2 text-xs uppercase tracking-wide text-gray-500">{label}</div>
+    {children}
+  </div>
+);
+
+interface PanelProps {
+  title: string;
+  action: React.ReactNode;
+  children: React.ReactNode;
+}
+
+const Panel = ({ title, action, children }: PanelProps) => (
+  <section className="rounded-lg border border-gray-200 bg-white p-5">
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 className="m-0 text-base font-semibold text-gray-900">{title}</h2>
+      {action}
+    </div>
+    {children}
+  </section>
+);
+
+interface AuditRowProps {
+  run: AuditSummary;
+  showDate?: boolean;
+}
+
+const AuditRow = ({ run, showDate = false }: AuditRowProps) => (
+  <Link
+    href={`/audits/${run.id}`}
+    className="flex items-center justify-between gap-3 border-b border-gray-100 py-2.5 text-gray-700 no-underline transition last:border-b-0 hover:text-gray-950"
+  >
+    <div className="min-w-0 flex-1">
+      <div className="text-xs text-gray-500">
+        <span className="mr-1.5 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[0.65rem] text-gray-400">
+          {run.pageType}
+        </span>
+        {run.projectTitle}
+      </div>
+      <div className="truncate text-sm text-gray-700">{run.url}</div>
+    </div>
+    <div className="flex shrink-0 items-center gap-1.5">
+      {run.status === 'failed' ? (
+        <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-800">Failed</span>
+      ) : (
+        <ScoreBadge score={run.performanceScore} size="sm" />
+      )}
+      {showDate && (
+        <span className="text-xs text-gray-400">
+          {new Date(run.createdAt).toLocaleDateString()}
+        </span>
+      )}
+    </div>
+  </Link>
+);
+
+interface QuickLinkProps {
+  href: string;
+  icon: string;
+  label: string;
+}
+
+const QuickLink = ({ href, icon, label }: QuickLinkProps) => (
+  <Link
+    href={href}
+    className="flex flex-col items-center gap-2 rounded-lg border border-gray-200 bg-white p-5 text-sm font-medium text-gray-700 no-underline transition hover:border-blue-200 hover:text-blue-700"
+  >
+    <span className="text-2xl">{icon}</span>
+    <span>{label}</span>
+  </Link>
+);
+
+export default DashboardPage;

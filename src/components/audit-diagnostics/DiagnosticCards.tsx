@@ -1,36 +1,53 @@
-import React from 'react';
 import { AdvancedDiagnostics } from '@/types';
 
-export function DiagnosticCards({ diagnostics }: { diagnostics: AdvancedDiagnostics }) {
+interface DiagnosticCardsProps {
+  diagnostics: AdvancedDiagnostics;
+}
+
+interface CardProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+const listItemClass = 'flex items-center justify-between border-b border-gray-100 pb-3 text-sm';
+const itemLabelClass = 'max-w-[200px] truncate whitespace-nowrap font-medium text-gray-700';
+const itemValueClass = 'shrink-0 font-semibold text-gray-900';
+const codeBlockClass = 'overflow-x-auto whitespace-nowrap rounded-md border border-slate-200 bg-slate-100 p-3 font-mono text-xs text-slate-900';
+
+const Card = ({ title, children }: CardProps) => (
+  <article className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <h4 className="m-0 border-b border-gray-200 bg-gray-50 px-5 py-4 text-base font-semibold text-gray-900">{title}</h4>
+    <div className="flex-1 p-5">{children}</div>
+  </article>
+);
+
+const DiagnosticCards = ({ diagnostics }: DiagnosticCardsProps) => {
   if (!diagnostics) return null;
 
   return (
-    <div style={styles.grid}>
-      {/* Mainthread Work Breakdown */}
+    <div className="mb-8 grid gap-6 md:grid-cols-[repeat(auto-fill,minmax(350px,1fr))]">
       {diagnostics.mainthreadWorkBreakdown && diagnostics.mainthreadWorkBreakdown.length > 0 && (
         <Card title="Main-thread Work Breakdown">
-          <ul style={styles.list}>
-            {diagnostics.mainthreadWorkBreakdown.slice(0, 5).map((item, i) => (
-              <li key={i} style={styles.listItem}>
-                <span style={styles.itemLabel}>{item.groupLabel}</span>
-                <span style={styles.itemValue}>{Math.round(item.duration)} ms</span>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {diagnostics.mainthreadWorkBreakdown.slice(0, 5).map((item, index) => (
+              <li key={`${item.groupLabel}-${index}`} className={listItemClass}>
+                <span className={itemLabelClass}>{item.groupLabel}</span>
+                <span className={itemValueClass}>{Math.round(item.duration)} ms</span>
               </li>
             ))}
           </ul>
         </Card>
       )}
 
-      {/* Bootup Time */}
       {diagnostics.bootupTime && diagnostics.bootupTime.length > 0 && (
         <Card title="JavaScript Bootup Time">
-          <ul style={styles.list}>
-            {diagnostics.bootupTime.slice(0, 5).map((item, i) => {
-              const urlParts = item.url.split('/');
-              const filename = urlParts[urlParts.length - 1] || item.url;
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {diagnostics.bootupTime.slice(0, 5).map((item, index) => {
+              const filename = item.url.split('/').at(-1) || item.url;
               return (
-                <li key={i} style={styles.listItem}>
-                  <span style={styles.itemLabel} title={item.url}>{filename}</span>
-                  <span style={styles.itemValue}>{Math.round(item.total)} ms</span>
+                <li key={`${item.url}-${index}`} className={listItemClass}>
+                  <span className={itemLabelClass} title={item.url}>{filename}</span>
+                  <span className={itemValueClass}>{Math.round(item.total)} ms</span>
                 </li>
               );
             })}
@@ -38,18 +55,15 @@ export function DiagnosticCards({ diagnostics }: { diagnostics: AdvancedDiagnost
         </Card>
       )}
 
-      {/* Third Party Summary */}
       {diagnostics.thirdPartySummary && diagnostics.thirdPartySummary.length > 0 && (
         <Card title="Third-Party Summary">
-          <ul style={styles.list}>
-            {diagnostics.thirdPartySummary.slice(0, 5).map((item, i) => (
-              <li key={i} style={styles.listItem}>
-                <span style={styles.itemLabel}>{item.entityName}</span>
-                <span style={styles.itemValue}>
-                  {Math.round(item.transferSize / 1024)} KB 
-                  <span style={{color: '#9ca3af', fontSize: '0.75rem', marginLeft: '4px'}}>
-                    ({Math.round(item.blockingTime)}ms block)
-                  </span>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {diagnostics.thirdPartySummary.slice(0, 5).map((item, index) => (
+              <li key={`${item.entityName}-${index}`} className={listItemClass}>
+                <span className={itemLabelClass}>{item.entityName}</span>
+                <span className={itemValueClass}>
+                  {Math.round(item.transferSize / 1024)} KB
+                  <span className="ml-1 text-xs font-normal text-gray-400">({Math.round(item.blockingTime)}ms block)</span>
                 </span>
               </li>
             ))}
@@ -57,29 +71,27 @@ export function DiagnosticCards({ diagnostics }: { diagnostics: AdvancedDiagnost
         </Card>
       )}
 
-      {/* LCP Element */}
       {diagnostics.lcpElement && (
         <Card title="Largest Contentful Paint Element">
-          <div style={styles.codeBlock}>
+          <div className={codeBlockClass}>
             <code>{diagnostics.lcpElement.snippet || diagnostics.lcpElement.nodeLabel}</code>
           </div>
           {diagnostics.lcpElement.path && (
-            <div style={styles.pathLabel}>Selector: {diagnostics.lcpElement.path}</div>
+            <div className="mt-3 break-all font-mono text-xs text-slate-500">Selector: {diagnostics.lcpElement.path}</div>
           )}
         </Card>
       )}
 
-      {/* CLS Elements */}
       {diagnostics.layoutShiftElements && diagnostics.layoutShiftElements.length > 0 && (
         <Card title="Layout Shift Elements (CLS)">
-          <ul style={styles.list}>
-            {diagnostics.layoutShiftElements.map((item, i) => (
-              <li key={i} style={{...styles.listItem, flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem'}}>
-                <div style={{display: 'flex', justifyContent: 'space-between', width: '100%'}}>
-                  <span style={styles.itemLabel}>Shift Score Contribution</span>
-                  <span style={{...styles.itemValue, color: '#ef4444'}}>{item.score.toFixed(4)}</span>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {diagnostics.layoutShiftElements.map((item, index) => (
+              <li key={`${item.score}-${index}`} className="flex flex-col items-start gap-1 border-b border-gray-100 pb-3 text-sm">
+                <div className="flex w-full justify-between">
+                  <span className={itemLabelClass}>Shift Score Contribution</span>
+                  <span className="shrink-0 font-semibold text-red-500">{item.score.toFixed(4)}</span>
                 </div>
-                <div style={{...styles.codeBlock, width: '100%', boxSizing: 'border-box'}}>
+                <div className={`${codeBlockClass} w-full`}>
                   <code>{item.snippet || item.nodeLabel}</code>
                 </div>
               </li>
@@ -88,14 +100,13 @@ export function DiagnosticCards({ diagnostics }: { diagnostics: AdvancedDiagnost
         </Card>
       )}
 
-      {/* DOM Size */}
       {diagnostics.domSize !== null && (
         <Card title="DOM Size">
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: '#3b82f6', textAlign: 'center', padding: '1rem 0' }}>
-            {diagnostics.domSize} <span style={{ fontSize: '1rem', color: '#6b7280', fontWeight: 500 }}>elements</span>
+          <div className="py-4 text-center text-3xl font-bold text-blue-500">
+            {diagnostics.domSize} <span className="text-base font-medium text-gray-500">elements</span>
           </div>
           {diagnostics.domSize > 1500 && (
-            <div style={{ fontSize: '0.875rem', color: '#ef4444', textAlign: 'center', background: '#fee2e2', padding: '0.5rem', borderRadius: '4px' }}>
+            <div className="rounded bg-red-100 p-2 text-center text-sm text-red-500">
               Warning: Exceeds recommended 1,500 elements
             </div>
           )}
@@ -103,91 +114,6 @@ export function DiagnosticCards({ diagnostics }: { diagnostics: AdvancedDiagnost
       )}
     </div>
   );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={styles.card}>
-      <h4 style={styles.cardTitle}>{title}</h4>
-      <div style={styles.cardContent}>{children}</div>
-    </div>
-  );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-    gap: '1.5rem',
-    marginBottom: '2rem'
-  },
-  card: {
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden'
-  },
-  cardTitle: {
-    margin: 0,
-    padding: '1rem 1.25rem',
-    background: '#f9fafb',
-    borderBottom: '1px solid #e5e7eb',
-    fontSize: '1.05rem',
-    fontWeight: 600,
-    color: '#111827'
-  },
-  cardContent: {
-    padding: '1.25rem',
-    flex: 1
-  },
-  list: {
-    margin: 0,
-    padding: 0,
-    listStyle: 'none',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.75rem'
-  },
-  listItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: '0.75rem',
-    borderBottom: '1px solid #f3f4f6',
-    fontSize: '0.875rem'
-  },
-  itemLabel: {
-    color: '#374151',
-    fontWeight: 500,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '200px'
-  },
-  itemValue: {
-    color: '#111827',
-    fontWeight: 600,
-    flexShrink: 0
-  },
-  codeBlock: {
-    background: '#f1f5f9',
-    padding: '0.75rem',
-    borderRadius: '6px',
-    fontSize: '0.8rem',
-    fontFamily: 'monospace',
-    color: '#0f172a',
-    overflowX: 'auto',
-    whiteSpace: 'nowrap',
-    border: '1px solid #e2e8f0'
-  },
-  pathLabel: {
-    marginTop: '0.75rem',
-    fontSize: '0.8rem',
-    color: '#64748b',
-    fontFamily: 'monospace',
-    wordBreak: 'break-all'
-  }
 };
+
+export { DiagnosticCards };

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Project } from '@prisma/client';
+import { Prisma, Project } from '@prisma/client';
 import { validateProjectSubmission } from '@/lib/validation/project';
 import { ProjectResponse, Environment } from '@/types';
 
@@ -13,8 +13,7 @@ interface PrismaProjectUrl {
   createdAt: Date;
 }
 
-function mapProjectToResponse(project: Project & { urls: PrismaProjectUrl[] }): ProjectResponse {
-  return {
+const mapProjectToResponse = (project: Project & { urls: PrismaProjectUrl[] }): ProjectResponse => ({
     id: project.id,
     title: project.title,
     description: project.description,
@@ -32,10 +31,9 @@ function mapProjectToResponse(project: Project & { urls: PrismaProjectUrl[] }): 
       priority: u.priority,
       createdAt: u.createdAt.toISOString(),
     })),
-  };
-}
+});
 
-export async function GET() {
+export const GET = async () => {
   try {
     const projects = await prisma.project.findMany({
       include: { urls: true },
@@ -47,9 +45,9 @@ export async function GET() {
     console.error('GET /api/projects error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};
 
-export async function POST(request: NextRequest) {
+export const POST = async (request: NextRequest) => {
   try {
     const body = await request.json();
 
@@ -61,7 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const project = await prisma.$transaction(async (tx: any) => {
+    const project = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newProject = await tx.project.create({
         data: {
           title: body.title,
@@ -99,4 +97,4 @@ export async function POST(request: NextRequest) {
     console.error('POST /api/projects error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};

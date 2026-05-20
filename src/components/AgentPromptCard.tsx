@@ -1,78 +1,87 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { AgentPrompt } from '@/types';
+import { useState } from "react";
+import { AgentPrompt } from "@/types";
 
 interface AgentPromptCardProps {
   prompt: AgentPrompt;
   index: number;
 }
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => {
-        navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        });
-      }}
-      style={styles.copyBtn}
-    >
-      {copied ? '✓ Copied' : 'Copy prompt'}
-    </button>
-  );
+interface CopyButtonProps {
+  text: string;
 }
 
-export function AgentPromptCard({ prompt, index }: AgentPromptCardProps) {
-  const [expanded, setExpanded] = useState(index === 0);
+const CopyButton = ({ text }: CopyButtonProps) => {
+  const [copied, setCopied] = useState(false);
 
-  const savingsParts: string[] = [];
-  if (prompt.savingsMs !== null && prompt.savingsMs !== 0) {
-    savingsParts.push(`~${prompt.savingsMs}ms`);
-  }
-  if (prompt.savingsBytes !== null && prompt.savingsBytes !== 0) {
-    savingsParts.push(`~${Math.round(prompt.savingsBytes / 1024)}KB`);
-  }
-  const savings = savingsParts.join(' / ');
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   return (
-    <div style={styles.agentCard}>
-      <div style={styles.agentCardHeader} onClick={() => setExpanded(e => !e)}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-          <span style={styles.priorityBadge}>#{prompt.rank}</span>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#111827' }}>
-              {prompt.opportunityTitle}
-            </div>
-            {savings && (
-              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.1rem' }}>
-                Estimated savings: {savings}
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="whitespace-nowrap rounded border border-blue-200 bg-blue-50 px-3 py-1 text-[0.8rem] text-blue-600 transition hover:bg-blue-100"
+    >
+      {copied ? "✓ Copied" : "Copy prompt"}
+    </button>
+  );
+};
+
+export const AgentPromptCard = ({ prompt, index }: AgentPromptCardProps) => {
+  const [expanded, setExpanded] = useState(index === 0);
+
+  const savings = [
+    prompt.savingsMs ? `~${prompt.savingsMs}ms` : null,
+    prompt.savingsBytes ? `~${Math.round(prompt.savingsBytes / 1024)}KB` : null,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+
+  const toggleExpanded = () => setExpanded((current) => !current);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="flex w-full items-center justify-between gap-4 bg-gray-50 px-5 py-4">
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          className="flex flex-1 cursor-pointer items-center justify-between gap-4 text-left"
+          aria-expanded={expanded}
+        >
+          <div className="flex flex-1 items-center gap-3">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[0.8rem] font-bold text-white">
+              #{prompt.rank}
+            </span>
+            <div>
+              <div className="text-sm font-semibold text-gray-900">
+                {prompt.opportunityTitle}
               </div>
-            )}
+              {savings && (
+                <div className="mt-0.5 text-xs text-gray-500">
+                  Estimated savings: {savings}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {expanded && <CopyButton text={prompt.prompt} />}
-          <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>{expanded ? '▲' : '▼'}</span>
-        </div>
+        {expanded && <CopyButton text={prompt.prompt} />}
+          <span className="text-sm text-gray-400">{expanded ? "▲" : "▼"}</span>
+        </button>
+
       </div>
 
       {expanded && (
-        <div style={styles.agentCardBody}>
-          <pre style={styles.promptPre}>{prompt.prompt}</pre>
+        <div className="border-t border-gray-200 px-5 pb-5">
+          <pre className="mt-4 overflow-x-auto whitespace-pre-wrap wrap-break-word rounded-md bg-[#1e1e2e] p-4 text-[0.8rem] leading-7 text-[#cdd6f4]">
+            {prompt.prompt}
+          </pre>
         </div>
       )}
     </div>
   );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  agentCard: { border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#fff' },
-  agentCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', cursor: 'pointer', background: '#f9fafb', gap: '1rem' },
-  agentCardBody: { padding: '0 1.25rem 1.25rem', borderTop: '1px solid #e5e7eb' },
-  priorityBadge: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', background: '#2563eb', color: '#fff', borderRadius: '50%', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 },
-  promptPre: { margin: '1rem 0 0', padding: '1rem', background: '#1e1e2e', color: '#cdd6f4', borderRadius: '6px', fontSize: '0.8rem', lineHeight: 1.7, overflowX: 'auto' as const, whiteSpace: 'pre-wrap' as const, wordBreak: 'break-word' as const },
-  copyBtn: { padding: '0.3rem 0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '5px', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' as const },
 };

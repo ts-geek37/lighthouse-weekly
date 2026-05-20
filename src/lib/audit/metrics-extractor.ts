@@ -15,7 +15,7 @@ const OPPORTUNITY_AUDIT_IDS = [
   "unused-css-rules",
 ] as const;
 
-export function extractAdvancedDiagnostics(lhr: any, log: Logger): AdvancedDiagnostics {
+export const extractAdvancedDiagnostics = (lhr: any, log: Logger): AdvancedDiagnostics => {
   // 1. third-party-summary
   const tpSummaryRaw = lhr.audits['third-party-summary']?.details?.items || [];
   const thirdPartySummary = tpSummaryRaw.map((item: any) => ({
@@ -186,10 +186,10 @@ export function extractAdvancedDiagnostics(lhr: any, log: Logger): AdvancedDiagn
  * Extracts top opportunities as a structured array.
  * Sets absent fields to null and emits a warn log for each missing field.
  */
-export function extractMetrics(
+export const extractMetrics = (
   lhr: LighthouseResult,
   log: Logger,
-): ExtractedMetrics {
+): ExtractedMetrics => {
   // ── Category scores ──────────────────────────────────────────────────────
 
   const performanceScore = extractScore(lhr, "performance", log);
@@ -302,11 +302,11 @@ export function extractMetrics(
   };
 }
 
-function extractScore(
+const extractScore = (
   lhr: LighthouseResult,
   categoryKey: keyof LighthouseResult["categories"],
   log: Logger,
-): number | null {
+): number | null => {
   const category = lhr.categories[categoryKey];
   if (!category || category.score === null || category.score === undefined) {
     log.warn(
@@ -316,13 +316,13 @@ function extractScore(
     return null;
   }
   return Math.round(category.score * 100);
-}
+};
 
-function extractNumericValue(
+const extractNumericValue = (
   lhr: LighthouseResult,
   auditId: string,
   log: Logger,
-): number | null {
+): number | null => {
   const audit = lhr.audits[auditId];
   if (!audit || audit.numericValue === undefined) {
     log.warn(
@@ -332,4 +332,4 @@ function extractNumericValue(
     return null;
   }
   return Math.round(audit.numericValue * 100) / 100;
-}
+};

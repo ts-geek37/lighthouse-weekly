@@ -83,7 +83,7 @@ const mockRunAudit = runAudit as jest.MockedFunction<typeof runAudit>;
 const mockExtractMetrics = extractMetrics as jest.MockedFunction<typeof extractMetrics>;
 const mockGenerateSummary = generateSummary as jest.MockedFunction<typeof generateSummary>;
 
-function buildMockMetrics() {
+const buildMockMetrics = () => {
   return {
     performanceScore: 81,
     accessibilityScore: 94,
@@ -103,10 +103,10 @@ function buildMockMetrics() {
  * Simulates the core orchestrator loop logic in isolation.
  * This mirrors the for-loop in scripts/run-audits.ts without importing the module.
  */
-async function runOrchestratorLoop(
+async const runOrchestratorLoop = (
   urls: Array<{ id: string; url: string; projectId: string }>,
   prismaAuditRun: any
-): Promise<{ auditRunIds: string[]; failedUrls: Array<{ url: string; error: string }> }> {
+): Promise<{ auditRunIds: string[]; failedUrls: Array<{ url: string; error: string }> }> => {
   const auditRunIds: string[] = [];
   const failedUrls: Array<{ url: string; error: string }> = [];
   const mockLog = { info: jest.fn(), warn: jest.fn(), error: jest.fn() } as any;
