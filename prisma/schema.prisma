@@ -50,6 +50,7 @@ model AuditRun {
   projectId           String   @map("project_id")
   projectUrlId        String   @map("project_url_id")
   status              String   @default("success")
+  device              String   @default("mobile")
   performanceScore    Float?   @map("performance_score")
   accessibilityScore  Float?   @map("accessibility_score")
   seoScore            Float?   @map("seo_score")
@@ -63,6 +64,8 @@ model AuditRun {
   opportunitiesJson   Json?    @map("opportunities_json")
   aiSummary           String?  @map("ai_summary")
   agentPromptsJson    Json?    @map("agent_prompts_json")
+  htmlReport          String?  @map("html_report")
+  rawJson             Json?    @map("raw_json")
   createdAt           DateTime @default(now()) @map("created_at")
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)

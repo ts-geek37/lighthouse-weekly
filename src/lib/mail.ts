@@ -12,8 +12,6 @@ import {
 } from './comparison/comparisonTypes';
 
 // ── SMTP transporter ──────────────────────────────────────────────────────────
-// SMTP_PASS must be a Gmail App Password (Google Account → Security → App Passwords).
-// Plain account passwords are rejected by Google.
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -26,52 +24,55 @@ const transporter = nodemailer.createTransport({
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const C = {
-  coverBg:      '#0f172a',
-  coverTitle:   '#f8fafc',
-  coverMeta:    '#94a3b8',
-  sectionBg:    '#f8fafc',
-  chipBg:       '#f1f5f9',
-  cardBorder:   '#e2e8f0',
-  heading:      '#0f172a',
-  body:         '#374151',
-  muted:        '#6b7280',
-  good:         '#16a34a',
-  warn:         '#d97706',
-  bad:          '#dc2626',
-  critical:     '#9f1239',
-  neutral:      '#4b5563',
-  highBg:       '#fff1f2',
-  highBorder:   '#fda4af',
-  highText:     '#9f1239',
-  medBg:        '#fffbeb',
-  medBorder:    '#fcd34d',
-  medText:      '#92400e',
-  lowBg:        '#f0fdf4',
-  lowBorder:    '#86efac',
-  lowText:      '#166534',
-  scoreBandGood:'#dcfce7',
-  scoreBandWarn:'#fef9c3',
-  scoreBandBad: '#fee2e2',
+  coverBg:       '#0f172a',
+  coverTitle:    '#f8fafc',
+  coverMeta:     '#94a3b8',
+  sectionBg:     '#f8fafc',
+  chipBg:        '#f1f5f9',
+  cardBorder:    '#e2e8f0',
+  heading:       '#0f172a',
+  body:          '#374151',
+  muted:         '#6b7280',
+  good:          '#16a34a',
+  warn:          '#d97706',
+  bad:           '#dc2626',
+  critical:      '#9f1239',
+  neutral:       '#4b5563',
+  highBg:        '#fff1f2',
+  highBorder:    '#fda4af',
+  highText:      '#9f1239',
+  medBg:         '#fffbeb',
+  medBorder:     '#fcd34d',
+  medText:       '#92400e',
+  lowBg:         '#f0fdf4',
+  lowBorder:     '#86efac',
+  lowText:       '#166534',
+  scoreBandGood: '#dcfce7',
+  scoreBandWarn: '#fef9c3',
+  scoreBandBad:  '#fee2e2',
+  accentBlue:    '#3b82f6',
+  tableHeader:   '#1e293b',
+  tableHeaderTxt:'#cbd5e1',
 } as const;
 
-const MARGIN       = 48;
-const PAGE_W       = 595.28;
-const PAGE_H       = 841.89;
-const CONTENT_W    = PAGE_W - MARGIN * 2;
-const FOOTER_Y     = PAGE_H - 28;
-const BOTTOM_LIMIT = FOOTER_Y - 16;
+const MARGIN        = 48;
+const PAGE_W        = 595.28;
+const PAGE_H        = 841.89;
+const CONTENT_W     = PAGE_W - MARGIN * 2;
+const FOOTER_Y      = PAGE_H - 32;
+const BOTTOM_LIMIT  = FOOTER_Y - 20;
 
 // ── Metric thresholds (CWV spec) ──────────────────────────────────────────────
 
 interface MetricDisplay { label: string; unit: string; good: number; poor: number; }
 
 const METRIC_DISPLAY: Record<string, MetricDisplay> = {
-  lcp:        { label: 'Largest Contentful Paint', unit: 'ms', good: 2500,  poor: 4000  },
-  cls:        { label: 'Cumulative Layout Shift',  unit: '',   good: 0.1,   poor: 0.25  },
-  inpOrTbt:   { label: 'INP / Total Blocking Time',unit: 'ms', good: 200,   poor: 500   },
-  fcp:        { label: 'First Contentful Paint',   unit: 'ms', good: 1800,  poor: 3000  },
-  speedIndex: { label: 'Speed Index',              unit: 'ms', good: 3400,  poor: 5800  },
-  ttfb:       { label: 'Time to First Byte',       unit: 'ms', good: 800,   poor: 1800  },
+  lcp:        { label: 'Largest Contentful Paint',  unit: 'ms', good: 2500,  poor: 4000  },
+  cls:        { label: 'Cumulative Layout Shift',   unit: '',   good: 0.1,   poor: 0.25  },
+  inpOrTbt:   { label: 'INP / Total Blocking Time', unit: 'ms', good: 200,   poor: 500   },
+  fcp:        { label: 'First Contentful Paint',    unit: 'ms', good: 1800,  poor: 3000  },
+  speedIndex: { label: 'Speed Index',               unit: 'ms', good: 3400,  poor: 5800  },
+  ttfb:       { label: 'Time to First Byte',        unit: 'ms', good: 800,   poor: 1800  },
 };
 
 // ── Value formatting ──────────────────────────────────────────────────────────
@@ -80,12 +81,6 @@ function roundVal(val: number): number {
   return Math.round(val * 100) / 100;
 }
 
-/**
- * Format a metric value for display.
- * - Rounds to 2dp to eliminate floating-point garbage (2233.4999... → 2233.50)
- * - Auto-converts to seconds when ≥ 10 000ms (33476ms → 33.5s)
- * - CLS has no unit suffix
- */
 function fmtVal(val: number | null, unit: string): string {
   if (val === null) return 'N/A';
   const r = roundVal(val);
@@ -95,13 +90,8 @@ function fmtVal(val: number | null, unit: string): string {
   return `${r}${unit}`;
 }
 
-/**
- * Format a delta value.
- * Keeps sign explicit (+/-), converts large ms to seconds, appends % in parens.
- * Delta and percentage are on the same line — no mid-value line breaks.
- */
 function fmtDelta(delta: number | null, unit: string, pct: number | null): string {
-  if (delta === null) return '—';
+  if (delta === null) return '-';
   const r    = roundVal(delta);
   const sign = r > 0 ? '+' : '';
   let valStr: string;
@@ -145,16 +135,24 @@ function statusColor(status: MetricChange['status']): string {
     : C.neutral;
 }
 
-function statusArrow(status: MetricChange['status']): string {
-  return status === 'improved' ? '▲' : status === 'critical' ? '▼▼' : status === 'regressed' ? '▼' : '—';
+/**
+ * ASCII-safe status indicator — NO Unicode arrows or ticks.
+ * PDFKit's built-in Helvetica only covers Latin-1; arrow/tick glyphs
+ * outside that range render as solid black boxes.
+ */
+function statusLabel(status: MetricChange['status']): string {
+  return status === 'improved'  ? '(+)'
+    : status === 'critical'     ? '(!)'
+    : status === 'regressed'    ? '(-)'
+    : '-';
 }
 
-/** Strip `[text](url)` markdown links → `text` for clean PDF output. */
+/** Strip `[text](url)` markdown links → `text` */
 function stripMdLinks(text: string): string {
   return text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 }
 
-/** Strip `**bold**` markers. */
+/** Strip `**bold**` markers */
 function stripMdBold(text: string): string {
   return text.replace(/\*\*([^*]+)\*\*/g, '$1');
 }
@@ -173,19 +171,19 @@ function hRule(doc: PDFKit.PDFDocument, color: string = C.cardBorder, weight = 0
     .strokeColor(color).lineWidth(weight)
     .moveTo(MARGIN, doc.y).lineTo(MARGIN + CONTENT_W, doc.y)
     .stroke().restore();
-  doc.y += 10;
+  doc.y += 8;
 }
 
 function sectionHeading(doc: PDFKit.PDFDocument, title: string): void {
-  ensureSpace(doc, 30);
-  doc.y += 4;
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(C.muted)
-    .text(title.toUpperCase(), MARGIN, doc.y, { characterSpacing: 0.7 });
+  ensureSpace(doc, 32);
+  doc.y += 6;
+  doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.muted)
+    .text(title.toUpperCase(), MARGIN, doc.y, { characterSpacing: 1 });
   doc.y += 5;
-  hRule(doc, '#cbd5e1', 1);
+  hRule(doc, C.accentBlue, 1.5);
 }
 
-/** Small pill / chip: fills a rect then writes text inside. */
+/** Small pill / chip */
 function drawChip(
   doc: PDFKit.PDFDocument,
   text: string,
@@ -196,36 +194,41 @@ function drawChip(
 ): number {
   const PAD = 5;
   const H   = 14;
-  doc.fontSize(7);
+  doc.fontSize(6.5);
   const w = doc.widthOfString(text) + PAD * 2;
-  doc.save().rect(x, y, w, H).fill(bg).restore();
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(fg)
+  doc.save().roundedRect(x, y, w, H, 3).fill(bg).restore();
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor(fg)
     .text(text, x + PAD, y + 3.5, { lineBreak: false });
-  return w; // return chip width so caller can chain them
+  return w;
 }
 
-// ── Cover ──────────────────────────────────────────────────────────────────────
+// ── Cover page ────────────────────────────────────────────────────────────────
 
 function renderCover(doc: PDFKit.PDFDocument, projectReport: ProjectReport): void {
-  doc.save().rect(0, 0, PAGE_W, 130).fill(C.coverBg).restore();
-  doc.save().rect(0, 0, 4, 130).fill('#3b82f6').restore();
+  // Full-width dark banner
+  doc.save().rect(0, 0, PAGE_W, 150).fill(C.coverBg).restore();
+  // Blue accent strip on left
+  doc.save().rect(0, 0, 5, 150).fill(C.accentBlue).restore();
 
-  doc.font('Helvetica-Bold').fontSize(18).fillColor(C.coverTitle)
-    .text('Weekly Performance Intelligence', MARGIN, 30, { width: CONTENT_W });
+  doc.font('Helvetica-Bold').fontSize(20).fillColor(C.coverTitle)
+    .text('Weekly Performance Intelligence', MARGIN, 34, { width: CONTENT_W });
 
-  doc.font('Helvetica').fontSize(10).fillColor(C.coverMeta)
+  doc.font('Helvetica').fontSize(11).fillColor(C.coverMeta)
     .text(
       `${projectReport.projectTitle}  ·  ${projectReport.environment}  ·  ${new Date().toDateString()}`,
-      MARGIN, 58,
+      MARGIN, 66, { width: CONTENT_W },
     );
 
-  doc.font('Helvetica').fontSize(9).fillColor('#64748b')
-    .text(`Owner: ${projectReport.owner}`, MARGIN, 78);
+  doc.font('Helvetica').fontSize(9.5).fillColor('#64748b')
+    .text(`Owner: ${projectReport.owner}`, MARGIN, 90);
 
-  doc.y = 148;
+  // Thin separator line below banner
+  doc.y = 158;
+  hRule(doc, C.cardBorder, 0.5);
+  doc.y += 4;
 }
 
-// ── Score grid ──────────────────────────────────────────────────────────────────
+// ── Score grid ────────────────────────────────────────────────────────────────
 
 function renderScoreGrid(
   doc: PDFKit.PDFDocument,
@@ -235,7 +238,7 @@ function renderScoreGrid(
   bp:   number | null,
 ): void {
   sectionHeading(doc, 'Lighthouse Scores');
-  ensureSpace(doc, 72);
+  ensureSpace(doc, 80);
 
   const scores = [
     { label: 'Performance',    val: perf },
@@ -244,32 +247,37 @@ function renderScoreGrid(
     { label: 'Best Practices', val: bp   },
   ];
 
-  const colW   = CONTENT_W / 4;
-  const cellH  = 68;
-  const PAD    = 4;
+  const GAP    = 6;
+  const colW   = (CONTENT_W - GAP * 3) / 4;
+  const cellH  = 72;
   const startY = doc.y;
 
   scores.forEach(({ label, val }, i) => {
-    const x = MARGIN + i * colW + PAD;
-    const w = colW - PAD * 2;
+    const x = MARGIN + i * (colW + GAP);
 
-    doc.save().rect(x, startY, w, cellH).fill(scoreBandBg(val)).restore();
+    // Card background
+    doc.save().roundedRect(x, startY, colW, cellH, 4).fill(scoreBandBg(val)).restore();
+    // Thin top accent border
+    doc.save().roundedRect(x, startY, colW, 3, 0).fill(scoreColor(val)).restore();
 
-    doc.font('Helvetica-Bold').fontSize(30).fillColor(scoreColor(val))
-      .text(val !== null ? String(val) : '—', x, startY + 6, { width: w, align: 'center', lineBreak: false });
+    // Score number
+    doc.font('Helvetica-Bold').fontSize(32).fillColor(scoreColor(val))
+      .text(val !== null ? String(val) : '-', x, startY + 10, { width: colW, align: 'center', lineBreak: false });
 
+    // Label
     doc.font('Helvetica').fontSize(8).fillColor(C.body)
-      .text(label, x, startY + 44, { width: w, align: 'center', lineBreak: false });
+      .text(label, x, startY + 48, { width: colW, align: 'center', lineBreak: false });
 
-    const rating = val === null ? '' : val >= 90 ? 'Good' : val >= 50 ? 'Needs work' : 'Poor';
-    doc.font('Helvetica').fontSize(7).fillColor(scoreColor(val))
-      .text(rating, x, startY + 56, { width: w, align: 'center', lineBreak: false });
+    // Rating badge
+    const rating = val === null ? '' : val >= 90 ? 'Good' : val >= 50 ? 'Needs Work' : 'Poor';
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(scoreColor(val))
+      .text(rating, x, startY + 60, { width: colW, align: 'center', lineBreak: false });
   });
 
-  doc.y = startY + cellH + 14;
+  doc.y = startY + cellH + 16;
 }
 
-// ── CWV table ───────────────────────────────────────────────────────────────────
+// ── CWV table ─────────────────────────────────────────────────────────────────
 
 interface VitalRow {
   key:    string;
@@ -281,59 +289,66 @@ interface VitalRow {
 
 function renderVitalsTable(doc: PDFKit.PDFDocument, rows: VitalRow[]): void {
   sectionHeading(doc, 'Core Web Vitals');
-  ensureSpace(doc, rows.length * 22 + 26);
 
-  // Column x positions
+  const ROW_H = 22;
+  ensureSpace(doc, rows.length * ROW_H + 26);
+
+  // Column x positions — give STATUS enough room
   const COL = {
-    metric:  MARGIN,
-    current: MARGIN + 130,
-    prev:    MARGIN + 220,
-    delta:   MARGIN + 310,
-    status:  MARGIN + CONTENT_W - 52,
+    metric:  MARGIN + 6,
+    current: MARGIN + 180,
+    prev:    MARGIN + 270,
+    delta:   MARGIN + 365,
+    status:  MARGIN + CONTENT_W - 38,
   };
 
   // Header row
-  doc.save().rect(MARGIN, doc.y, CONTENT_W, 18).fill(C.chipBg).restore();
-  doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.muted);
-  (['METRIC', 'CURRENT', 'PREVIOUS', 'CHANGE', 'STATUS'] as const).forEach((h, i) => {
-    const xs = [COL.metric + 6, COL.current, COL.prev, COL.delta, COL.status];
-    doc.text(h, xs[i], doc.y + 5, { lineBreak: false });
-  });
-  doc.y += 18;
+  const headerY = doc.y;
+  doc.save().rect(MARGIN, headerY, CONTENT_W, 20).fill(C.tableHeader).restore();
+  doc.font('Helvetica-Bold').fontSize(7).fillColor(C.tableHeaderTxt);
+  doc.text('METRIC',   COL.metric,  headerY + 6, { lineBreak: false });
+  doc.text('CURRENT',  COL.current, headerY + 6, { lineBreak: false });
+  doc.text('PREVIOUS', COL.prev,    headerY + 6, { lineBreak: false });
+  doc.text('CHANGE',   COL.delta,   headerY + 6, { lineBreak: false });
+  doc.text('STATUS',   COL.status,  headerY + 6, { lineBreak: false });
+  doc.y = headerY + 20;
 
   rows.forEach(({ key, label, val, unit, change }, idx) => {
-    ensureSpace(doc, 22);
+    ensureSpace(doc, ROW_H);
     const rowY  = doc.y;
     const rowBg = idx % 2 === 0 ? '#ffffff' : C.sectionBg;
-    doc.save().rect(MARGIN, rowY, CONTENT_W, 20).fill(rowBg).restore();
+    doc.save().rect(MARGIN, rowY, CONTENT_W, ROW_H).fill(rowBg).restore();
 
     const vColor = metricColor(key, val);
-    const dStr   = change ? fmtDelta(change.delta, change.unit, change.percentage) : '—';
-    const pStr   = change ? fmtVal(change.previous, unit) : '—';
+    const dStr   = change ? fmtDelta(change.delta, change.unit, change.percentage) : '-';
+    const pStr   = change ? fmtVal(change.previous, unit) : '-';
     const dColor = change ? statusColor(change.status) : C.muted;
-    const arrow  = change ? statusArrow(change.status) : '—';
-    const aColor = change ? statusColor(change.status) : C.muted;
+    const sLabel = change ? statusLabel(change.status) : '-';
+    const sColor = change ? statusColor(change.status) : C.muted;
+
+    const textY = rowY + 6;
 
     doc.font('Helvetica').fontSize(8.5).fillColor(C.body)
-      .text(label, COL.metric + 6, rowY + 6, { lineBreak: false });
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(vColor)
-      .text(fmtVal(val, unit), COL.current, rowY + 6, { lineBreak: false });
+      .text(label, COL.metric, textY, { lineBreak: false });
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(vColor)
+      .text(fmtVal(val, unit), COL.current, textY, { lineBreak: false });
     doc.font('Helvetica').fontSize(8.5).fillColor(C.muted)
-      .text(pStr, COL.prev, rowY + 6, { lineBreak: false });
-    doc.font('Helvetica').fontSize(8.5).fillColor(dColor)
-      .text(dStr, COL.delta, rowY + 6, { width: COL.status - COL.delta - 6, lineBreak: false });
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(aColor)
-      .text(arrow, COL.status, rowY + 6, { lineBreak: false });
+      .text(pStr, COL.prev, textY, { lineBreak: false });
+    doc.font('Helvetica').fontSize(8).fillColor(dColor)
+      .text(dStr, COL.delta, textY, { width: COL.status - COL.delta - 4, lineBreak: false });
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(sColor)
+      .text(sLabel, COL.status, textY, { lineBreak: false });
 
-    doc.y = rowY + 20;
+    doc.y = rowY + ROW_H;
   });
 
+  // Bottom border
   doc.save().strokeColor(C.cardBorder).lineWidth(0.5)
     .moveTo(MARGIN, doc.y).lineTo(MARGIN + CONTENT_W, doc.y).stroke().restore();
-  doc.y += 14;
+  doc.y += 16;
 }
 
-// ── Regressions ──────────────────────────────────────────────────────────────
+// ── Regressions ───────────────────────────────────────────────────────────────
 
 function renderRegressions(doc: PDFKit.PDFDocument, items: RegressionItem[]): void {
   if (!items.length) return;
@@ -349,46 +364,49 @@ function renderRegressions(doc: PDFKit.PDFDocument, items: RegressionItem[]): vo
     const fg = fgMap[r.severity];
 
     doc.fontSize(9);
-    const msgH  = doc.heightOfString(r.message, { width: CONTENT_W - 24 });
-    const cardH = Math.max(40, msgH + 26);
+    const msgH  = doc.heightOfString(r.message, { width: CONTENT_W - 28 });
+    const cardH = Math.max(46, msgH + 30);
 
-    ensureSpace(doc, cardH + 8);
+    ensureSpace(doc, cardH + 10);
     const cardY = doc.y;
 
-    doc.save().rect(MARGIN, cardY, CONTENT_W, cardH).fill(bg).restore();
-    doc.save().rect(MARGIN, cardY, 3, cardH).fill(bd).restore();
+    doc.save().roundedRect(MARGIN, cardY, CONTENT_W, cardH, 4).fill(bg).restore();
+    // Left accent bar
+    doc.save().rect(MARGIN, cardY, 4, cardH).fill(bd).restore();
 
-    // Chips
-    let chipX = MARGIN + 10;
-    const svW = drawChip(doc, r.severity.toUpperCase(), chipX, cardY + 6, bd, fg);
-    chipX += svW + 5;
-    drawChip(doc, `${r.confidence.toUpperCase()} CONFIDENCE`, chipX, cardY + 6, C.chipBg, C.muted);
+    // Chips row
+    let chipX = MARGIN + 12;
+    const svW = drawChip(doc, r.severity.toUpperCase(), chipX, cardY + 7, bd, fg);
+    chipX += svW + 6;
+    drawChip(doc, `${r.confidence.toUpperCase()} CONFIDENCE`, chipX, cardY + 7, C.chipBg, C.muted);
 
-    doc.font('Helvetica').fontSize(9).fillColor(C.body)
-      .text(r.message, MARGIN + 10, cardY + 23, { width: CONTENT_W - 20 });
+    // Message
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.body)
+      .text(r.message, MARGIN + 12, cardY + 25, { width: CONTENT_W - 24 });
 
-    doc.y = cardY + cardH + 6;
+    doc.y = cardY + cardH + 8;
   }
-
   doc.y += 4;
 }
 
-// ── Improvements ─────────────────────────────────────────────────────────────
+// ── Improvements ──────────────────────────────────────────────────────────────
 
 function renderImprovements(doc: PDFKit.PDFDocument, items: Array<{ message: string }>): void {
   if (!items.length) return;
   sectionHeading(doc, 'Improvements');
 
   for (const item of items) {
-    ensureSpace(doc, 20);
+    ensureSpace(doc, 22);
     const lineY = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(C.good)
-      .text('✓', MARGIN, lineY, { lineBreak: false, width: 14 });
-    doc.font('Helvetica').fontSize(9).fillColor(C.body)
+    // ASCII "OK" bullet instead of Unicode tick
+    doc.save().circle(MARGIN + 5, lineY + 6, 5).fill(C.lowBg).restore();
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(C.good)
+      .text('OK', MARGIN + 1.5, lineY + 3, { lineBreak: false, width: 14 });
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.body)
       .text(item.message, MARGIN + 16, lineY, { width: CONTENT_W - 16 });
-    doc.y += 4;
+    doc.y += 5;
   }
-  doc.y += 6;
+  doc.y += 8;
 }
 
 // ── Recommendations ───────────────────────────────────────────────────────────
@@ -399,33 +417,36 @@ function renderRecommendations(doc: PDFKit.PDFDocument, recs: DeterministicRecom
 
   const fgMap = { high: C.highText, medium: C.medText, low: C.lowText } as const;
   const bgMap = { high: C.highBg,   medium: C.medBg,   low: C.lowBg   } as const;
+  const bdMap = { high: C.highBorder, medium: C.medBorder, low: C.lowBorder } as const;
 
   recs.forEach((rec, idx) => {
     const fg = fgMap[rec.priority];
     const bg = bgMap[rec.priority];
+    const bd = bdMap[rec.priority];
 
-    ensureSpace(doc, 28 + rec.suggestedFixes.length * 16);
+    const estimatedH = 28 + rec.suggestedFixes.length * 18;
+    ensureSpace(doc, estimatedH);
 
-    // Issue header
-    doc.save().rect(MARGIN, doc.y, CONTENT_W, 22).fill(bg).restore();
     const headerY = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(fg)
-      .text(`${idx + 1}.`, MARGIN + 8, headerY + 7, { lineBreak: false, width: 18 });
-    doc.fillColor(C.heading)
-      .text(rec.issue, MARGIN + 26, headerY + 7, { width: CONTENT_W - 32, lineBreak: false });
-    doc.y = headerY + 22 + 4;
+    doc.save().roundedRect(MARGIN, headerY, CONTENT_W, 24, 3).fill(bg).restore();
+    doc.save().rect(MARGIN, headerY, 4, 24).fill(bd).restore();
 
-    // Fix bullets
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(fg)
+      .text(`${idx + 1}.`, MARGIN + 10, headerY + 8, { lineBreak: false, width: 16 });
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.heading)
+      .text(rec.issue, MARGIN + 26, headerY + 8, { width: CONTENT_W - 32, lineBreak: false });
+
+    doc.y = headerY + 24 + 4;
+
     for (const fix of rec.suggestedFixes) {
       ensureSpace(doc, 18);
       const fixY = doc.y;
       doc.font('Helvetica').fontSize(8).fillColor(C.muted)
-        .text('·', MARGIN + 24, fixY, { lineBreak: false, width: 10 });
-      doc.font('Helvetica').fontSize(8.5).fillColor(C.body)
-        .text(fix, MARGIN + 34, fixY, { width: CONTENT_W - 40 });
+        .text('-', MARGIN + 28, fixY, { lineBreak: false, width: 10 });
+      doc.font('Helvetica').fontSize(8).fillColor(C.body)
+        .text(fix, MARGIN + 38, fixY, { width: CONTENT_W - 44 });
       doc.y += 2;
     }
-
     doc.y += 10;
   });
 }
@@ -443,128 +464,118 @@ function renderOpportunities(doc: PDFKit.PDFDocument, opps: Array<{
 
   opps.forEach((opp, idx) => {
     const cleanDesc = stripMdLinks(opp.description);
-
     doc.fontSize(8.5);
     const descH = doc.heightOfString(cleanDesc, { width: CONTENT_W - 16 });
-    ensureSpace(doc, 22 + descH + 8);
+    ensureSpace(doc, 24 + descH + 10);
 
     const titleY = doc.y;
 
+    // Number badge
+    doc.save().circle(MARGIN + 7, titleY + 6, 7).fill(C.chipBg).restore();
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.muted)
+      .text(String(idx + 1), MARGIN + 3.5, titleY + 2.5, { lineBreak: false, width: 14, align: 'center' });
+
     // Title
     doc.font('Helvetica-Bold').fontSize(9).fillColor(C.heading)
-      .text(`${idx + 1}.  ${opp.title}`, MARGIN, titleY, { width: CONTENT_W - 100, lineBreak: false });
+      .text(opp.title, MARGIN + 20, titleY, { width: CONTENT_W - 120, lineBreak: false });
 
     // Savings chips — right-aligned
     let chipRight = MARGIN + CONTENT_W;
     if (opp.savingsBytes) {
-      const label = `−${Math.round(opp.savingsBytes / 1024)} KB`;
-      const cw    = doc.widthOfString(label) + 12;
-      chipRight  -= cw + 4;
+      const label = `-${Math.round(opp.savingsBytes / 1024)} KB`;
+      const cw = doc.widthOfString(label) + 12;
+      chipRight -= cw + 4;
       drawChip(doc, label, chipRight, titleY, C.lowBg, C.lowText);
     }
     if (opp.savingsMs) {
-      const label = `−${opp.savingsMs} ms`;
-      const cw    = doc.widthOfString(label) + 12;
-      chipRight  -= cw + 4;
+      const label = `-${opp.savingsMs} ms`;
+      const cw = doc.widthOfString(label) + 12;
+      chipRight -= cw + 4;
       drawChip(doc, label, chipRight, titleY, C.lowBg, C.lowText);
     }
 
     doc.y = titleY + 14;
-    doc.font('Helvetica').fontSize(8.5).fillColor(C.muted)
-      .text(cleanDesc, MARGIN + 14, doc.y, { width: CONTENT_W - 16 });
+    doc.font('Helvetica').fontSize(8).fillColor(C.muted)
+      .text(cleanDesc, MARGIN + 20, doc.y, { width: CONTENT_W - 22 });
     doc.y += 10;
   });
 }
 
-// ── AI text block (summary / insight) ─────────────────────────────────────────
+// ── AI text block ─────────────────────────────────────────────────────────────
 
 function renderAiBlock(doc: PDFKit.PDFDocument, title: string, rawText: string): void {
   sectionHeading(doc, title);
+  doc.x = MARGIN;
 
   for (const line of rawText.split('\n')) {
     const clean = stripMdBold(stripMdLinks(line.trim()));
-    if (!clean) { doc.y += 4; continue; }
-
-    ensureSpace(doc, 18);
+    if (!clean) { doc.moveDown(0.4); continue; }
 
     if (clean.startsWith('## ')) {
-      doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.heading)
-        .text(clean.slice(3), MARGIN, doc.y, { width: CONTENT_W });
-      doc.y += 2;
+      ensureSpace(doc, 20);
+      doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.heading);
+      doc.text(clean.slice(3), MARGIN, doc.y, { width: CONTENT_W });
+      doc.moveDown(0.2);
     } else if (clean.startsWith('# ')) {
-      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(C.heading)
-        .text(clean.slice(2), MARGIN, doc.y, { width: CONTENT_W });
-      doc.y += 2;
+      ensureSpace(doc, 22);
+      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(C.heading);
+      doc.text(clean.slice(2), MARGIN, doc.y, { width: CONTENT_W });
+      doc.moveDown(0.2);
     } else if (/^\d+\./.test(clean)) {
-      doc.font('Helvetica').fontSize(9).fillColor(C.body)
-        .text(clean, MARGIN + 8, doc.y, { width: CONTENT_W - 8 });
-      doc.y += 2;
+      ensureSpace(doc, 16);
+      doc.font('Helvetica').fontSize(8.5).fillColor(C.body);
+      doc.text(clean, MARGIN, doc.y, { width: CONTENT_W, indent: 10 });
+      doc.moveDown(0.2);
     } else if (/^[-*•]/.test(clean)) {
+      ensureSpace(doc, 14);
       const content = clean.replace(/^[-*•]\s*/, '');
-      doc.font('Helvetica').fontSize(8.5).fillColor(C.muted)
-        .text('•', MARGIN + 8, doc.y, { lineBreak: false, width: 10 });
-      doc.font('Helvetica').fontSize(8.5).fillColor(C.body)
-        .text(`  ${content}`, MARGIN + 18, doc.y, { width: CONTENT_W - 22 });
-      doc.y += 2;
+      doc.font('Helvetica').fontSize(8.5).fillColor(C.body);
+      doc.text(`•  ${content}`, MARGIN, doc.y, { width: CONTENT_W, indent: 8 });
+      doc.moveDown(0.15);
     } else {
-      doc.font('Helvetica').fontSize(9).fillColor(C.body)
-        .text(clean, MARGIN, doc.y, { width: CONTENT_W, lineGap: 1.5 });
-      doc.y += 3;
+      ensureSpace(doc, 14);
+      doc.font('Helvetica').fontSize(8.5).fillColor(C.body);
+      doc.text(clean, MARGIN, doc.y, { width: CONTENT_W, lineGap: 1.5 });
+      doc.moveDown(0.25);
     }
   }
-
-  doc.y += 8;
+  doc.moveDown(0.8);
 }
 
 // ── URL section header ────────────────────────────────────────────────────────
 
 function renderUrlHeader(
   doc: PDFKit.PDFDocument,
-  urlReport: { url: string; pageType: string; status: string },
+  urlReport: { url: string; pageType: string; status: string; device: 'mobile' | 'desktop' },
 ): void {
-  ensureSpace(doc, 50);
-
-  doc.save().rect(MARGIN, doc.y, CONTENT_W, 32).fill(C.coverBg).restore();
-  doc.save().rect(MARGIN, doc.y, 3, 32).fill('#3b82f6').restore();
-
+  ensureSpace(doc, 52);
   const headerY = doc.y;
 
-  doc.font('Helvetica-Bold').fontSize(10).fillColor('#f8fafc')
-    .text(urlReport.pageType.toUpperCase(), MARGIN + 12, headerY + 5, { lineBreak: false });
-  doc.font('Helvetica').fontSize(9).fillColor('#94a3b8')
-    .text(`  —  ${urlReport.url}`, { continued: false, lineBreak: false });
+  doc.save().roundedRect(MARGIN, headerY, CONTENT_W, 38, 5).fill(C.coverBg).restore();
+  doc.save().rect(MARGIN, headerY, 5, 38).fill(C.accentBlue).restore();
 
-  const statusOk  = urlReport.status === 'success';
-  doc.font('Helvetica').fontSize(7.5).fillColor(statusOk ? C.good : C.bad)
-    .text(statusOk ? '✓ Audit passed' : '✗ Audit failed', MARGIN + 12, headerY + 20);
+  const titleText = `${urlReport.pageType.toUpperCase()} (${urlReport.device.toUpperCase()})`;
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#f8fafc')
+    .text(titleText, MARGIN + 14, headerY + 7, { lineBreak: false });
 
-  doc.y = headerY + 40;
-}
+  doc.font('Helvetica').fontSize(8.5).fillColor('#94a3b8')
+    .text(urlReport.url, MARGIN + 14, headerY + 23, { width: CONTENT_W - 100, lineBreak: false });
 
-// ── Page footers ──────────────────────────────────────────────────────────────
+  // Status — ASCII-safe: [PASS] or [FAIL]
+  const statusOk = urlReport.status === 'success';
+  const statusTxt = statusOk ? '[PASS]' : '[FAIL]';
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(statusOk ? C.good : C.bad)
+    .text(statusTxt, MARGIN + CONTENT_W - 50, headerY + 15, { lineBreak: false });
 
-function stampFooters(doc: PDFKit.PDFDocument, projectTitle: string): void {
-  const range = (doc as any).bufferedPageRange() as { start: number; count: number };
-  for (let i = 0; i < range.count; i++) {
-    doc.switchToPage(range.start + i);
-    doc.save().strokeColor(C.cardBorder).lineWidth(0.5)
-      .moveTo(MARGIN, FOOTER_Y - 8)
-      .lineTo(MARGIN + CONTENT_W, FOOTER_Y - 8)
-      .stroke().restore();
-    doc.font('Helvetica').fontSize(7.5).fillColor(C.muted)
-      .text(
-        `${projectTitle}  ·  Weekly Lighthouse Monitoring  ·  Page ${i + 1} of ${range.count}`,
-        MARGIN, FOOTER_Y,
-        { width: CONTENT_W, align: 'center' },
-      );
-  }
+  doc.y = headerY + 48;
 }
 
 // ── Main PDF builder ──────────────────────────────────────────────────────────
 
 function buildPdf(
   projectReport: ProjectReport,
-  comparisonReport: ProjectComparisonReport,
+  mobileComparisonReport?: ProjectComparisonReport,
+  desktopComparisonReport?: ProjectComparisonReport,
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -584,17 +595,23 @@ function buildPdf(
     doc.on('end',   () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
+    // ── Page 1: Header + first URL report ────────────────────────────────────
     renderCover(doc, projectReport);
 
-    const urlComparisons = new Map<string, UrlComparisonResult>(
-      comparisonReport.urls.map((u) => [u.url, u]),
-    );
+    // ── Per-URL pages ─────────────────────────────────────────────────────────
+    projectReport.urls.forEach((urlReport, urlIdx) => {
+      // Keep the first report directly under the cover header. Later reports
+      // still start on their own pages for readability.
+      if (urlIdx > 0) {
+        doc.addPage();
+        doc.y = MARGIN + 8;
+      }
 
-    for (const urlReport of projectReport.urls) {
-      const comp = urlComparisons.get(urlReport.url);
+      const isMobile = urlReport.device === 'mobile';
+      const compReport = isMobile ? mobileComparisonReport : desktopComparisonReport;
+      const comp = compReport?.urls.find(u => u.url === urlReport.url);
 
       renderUrlHeader(doc, urlReport);
-
       renderScoreGrid(
         doc,
         urlReport.performanceScore,
@@ -616,18 +633,14 @@ function buildPdf(
         renderVitalsTable(doc, rows);
       }
 
-      if (comp?.regressions?.length)     renderRegressions(doc, comp.regressions);
-      if (comp?.improvements?.length)    renderImprovements(doc, comp.improvements);
-      if (comp?.recommendations?.length) renderRecommendations(doc, comp.recommendations);
+      if (comp?.regressions?.length)       renderRegressions(doc, comp.regressions);
+      if (comp?.improvements?.length)      renderImprovements(doc, comp.improvements);
+      if (comp?.recommendations?.length)   renderRecommendations(doc, comp.recommendations);
       if (urlReport.opportunities?.length) renderOpportunities(doc, urlReport.opportunities);
-      if (urlReport.aiSummary)  renderAiBlock(doc, 'AI Engineering Summary', urlReport.aiSummary);
-      if (comp?.aiInsight)      renderAiBlock(doc, 'AI Weekly Insight', comp.aiInsight);
+      if (urlReport.aiSummary)             renderAiBlock(doc, 'AI Engineering Summary', urlReport.aiSummary);
+      if (comp?.aiInsight)                 renderAiBlock(doc, 'AI Weekly Insight', comp.aiInsight);
+    });
 
-      const isLast = urlReport === projectReport.urls[projectReport.urls.length - 1];
-      if (!isLast) doc.addPage();
-    }
-
-    stampFooters(doc, projectReport.projectTitle);
     doc.end();
   });
 }
@@ -638,21 +651,17 @@ export const sendReportEmail = async (
   to: string,
   projectReport: ProjectReport,
   log: Logger,
-  comparisonReport?: ProjectComparisonReport,
+  mobileComparisonReport?: ProjectComparisonReport,
+  desktopComparisonReport?: ProjectComparisonReport,
 ): Promise<void> => {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     log.warn('SMTP_USER or SMTP_PASS not configured — skipping email');
     return;
   }
 
-  if (!comparisonReport) {
-    log.warn('No comparison report — skipping email');
-    return;
-  }
-
   let pdfBuffer: Buffer;
   try {
-    pdfBuffer = await buildPdf(projectReport, comparisonReport);
+    pdfBuffer = await buildPdf(projectReport, mobileComparisonReport, desktopComparisonReport);
     log.info({ bytes: pdfBuffer.length }, 'PDF generated');
   } catch (err) {
     log.error({ err }, 'PDF generation failed — skipping email');
@@ -664,34 +673,84 @@ export const sendReportEmail = async (
   const filename = `${slug}-performance-report-${date}.pdf`;
   const subject  = `Weekly Performance Digest: ${projectReport.projectTitle}`;
 
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+  let urlsHtml = '';
+  for (const urlReport of projectReport.urls) {
+    const isMobile = urlReport.device === 'mobile';
+    const compReport = isMobile ? mobileComparisonReport : desktopComparisonReport;
+    const comp = compReport?.urls.find(u => u.url === urlReport.url);
+    const latestRunId  = comp?.historicalRuns[comp?.historicalRuns.length - 1]?.id;
+    const reportLink   = latestRunId ? `${baseUrl}/api/audits/${latestRunId}/html` : '#';
+    const overviewLink = latestRunId ? `${baseUrl}/audits/${latestRunId}` : '#';
+    const pScore       = urlReport.performanceScore;
+    const ratingTxt    = pScore === null ? '' : pScore >= 90 ? 'Good' : pScore >= 50 ? 'Needs Work' : 'Poor';
+
+    urlsHtml += `
+      <tr>
+        <td style="padding:14px 12px;border-bottom:1px solid #e2e8f0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${urlReport.url}">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <a href="${overviewLink}" style="color:#2563eb;text-decoration:none;font-weight:600;">${urlReport.pageType}</a>
+            <span style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;background:${isMobile ? '#fff1f2' : '#eff6ff'};color:${isMobile ? '#9f1239' : '#1e40af'};border:1px solid ${isMobile ? '#fecdd3' : '#bfdbfe'};">
+              ${isMobile ? 'Mobile' : 'Desktop'}
+            </span>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;overflow:hidden;text-overflow:ellipsis;">${urlReport.url}</div>
+        </td>
+        <td style="padding:14px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">
+          <span style="font-weight:700;font-size:22px;color:${scoreColor(pScore)}">${pScore ?? '-'}</span>
+          <div style="font-size:10px;color:${scoreColor(pScore)};margin-top:2px;">${ratingTxt}</div>
+        </td>
+        <td style="padding:14px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">
+          ${latestRunId
+            ? `<a href="${reportLink}" style="font-size:12px;color:#ffffff;text-decoration:none;padding:8px 14px;border-radius:6px;background:#4f46e5;display:inline-block;font-weight:500;">View Report</a>`
+            : '<span style="color:#94a3b8;font-size:12px;">N/A</span>'}
+        </td>
+      </tr>`;
+  }
+
   const htmlBody = `
-    <div style="font-family:-apple-system,sans-serif;color:#1e293b;max-width:560px;margin:0 auto;">
-      <div style="background:#0f172a;padding:28px 32px;border-left:4px solid #3b82f6;">
-        <h2 style="color:#f8fafc;margin:0 0 6px;font-size:18px;">Weekly Performance Report</h2>
-        <p style="color:#94a3b8;margin:0;font-size:13px;">${projectReport.projectTitle} · ${projectReport.environment}</p>
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1e293b;max-width:660px;margin:0 auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+      <div style="background:#0f172a;padding:32px;border-left:5px solid #3b82f6;">
+        <h2 style="color:#f8fafc;margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Weekly Performance Report</h2>
+        <p style="color:#94a3b8;margin:0;font-size:13px;">${projectReport.projectTitle} &nbsp;·&nbsp; ${projectReport.environment}</p>
       </div>
-      <div style="padding:24px 32px;background:#f8fafc;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151;">
-          <tr><td style="padding:5px 0;color:#6b7280;">Project</td>     <td style="padding:5px 0;font-weight:600;">${projectReport.projectTitle}</td></tr>
-          <tr><td style="padding:5px 0;color:#6b7280;">Environment</td> <td style="padding:5px 0;">${projectReport.environment}</td></tr>
-          <tr><td style="padding:5px 0;color:#6b7280;">Owner</td>       <td style="padding:5px 0;">${projectReport.owner}</td></tr>
-          <tr><td style="padding:5px 0;color:#6b7280;">Date</td>        <td style="padding:5px 0;">${new Date().toDateString()}</td></tr>
-          <tr><td style="padding:5px 0;color:#6b7280;">URLs audited</td><td style="padding:5px 0;">${projectReport.urls.length}</td></tr>
+      <div style="padding:32px;background:#ffffff;">
+        <p style="font-size:14px;color:#334155;margin:0 0 24px;line-height:1.7;">
+          The weekly Lighthouse audit for <strong>${projectReport.projectTitle}</strong> is complete.
+          View the full diagnostic overview and AI engineering summaries on the dashboard, or click below to open the native Lighthouse HTML reports.
+        </p>
+
+        <h3 style="font-size:14px;font-weight:600;margin:0 0 14px;color:#0f172a;border-bottom:2px solid #f1f5f9;padding-bottom:8px;">Audited Pages</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#334155;margin-bottom:24px;">
+          <thead>
+            <tr style="background:#f8fafc;">
+              <th style="padding:12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#64748b;font-weight:600;">Page</th>
+              <th style="padding:12px;text-align:center;border-bottom:2px solid #e2e8f0;color:#64748b;font-weight:600;">Perf Score</th>
+              <th style="padding:12px;text-align:center;border-bottom:2px solid #e2e8f0;color:#64748b;font-weight:600;">Action</th>
+            </tr>
+          </thead>
+          <tbody>${urlsHtml}</tbody>
         </table>
-        <p style="font-size:13px;color:#374151;margin:16px 0 0;">Full performance intelligence report attached as PDF.</p>
+
+        <div style="padding:16px 20px;background:#f0f9ff;border-radius:8px;border-left:4px solid #3b82f6;">
+          <p style="margin:0;font-size:13px;color:#0369a1;line-height:1.6;">
+            <strong>PDF Attached:</strong> The attached report includes Core Web Vitals breakdowns, regression analysis, optimization opportunities, and AI-generated insights.
+          </p>
+        </div>
       </div>
-      <div style="padding:14px 32px;border-top:1px solid #e2e8f0;">
-        <p style="color:#94a3b8;font-size:11px;margin:0;">Generated by Weekly Lighthouse Monitoring</p>
+      <div style="padding:18px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
+        <p style="color:#94a3b8;font-size:12px;margin:0;">Generated by Lighthouse Intelligence Platform</p>
       </div>
     </div>`;
 
   try {
     const info = await transporter.sendMail({
-      from:    `"Lighthouse Monitoring" <${process.env.SMTP_USER}>`,
+      from:        `"Lighthouse Monitoring" <${process.env.SMTP_USER}>`,
       to,
       subject,
-      html:    htmlBody,
-      text:    `Weekly Performance Digest: ${projectReport.projectTitle}\n\nSee attached PDF.`,
+      html:        htmlBody,
+      text:        `Weekly Performance Digest: ${projectReport.projectTitle}\n\nSee attached PDF.`,
       attachments: [{ filename, content: pdfBuffer, contentType: 'application/pdf' }],
     });
     log.info({ messageId: info.messageId, to, filename }, 'Performance report emailed');

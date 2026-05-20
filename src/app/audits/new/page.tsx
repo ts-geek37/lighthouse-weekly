@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { AgentPrompt, ProjectResponse } from '@/types';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { AgentPromptCard } from '@/components/AgentPromptCard';
@@ -10,6 +9,7 @@ interface AuditResult {
   auditRunId: string;
   url: string;
   status: 'success' | 'failed';
+  device: 'mobile' | 'desktop';
   performanceScore: number | null;
   accessibilityScore: number | null;
   seoScore: number | null;
@@ -27,14 +27,16 @@ interface AuditResult {
   error?: string;
 }
 
+type RunAuditResultMap = { mobile: AuditResult; desktop: AuditResult };
+
 export default function RunAuditPage() {
-  const router = useRouter();
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [mode, setMode] = useState<'adhoc' | 'project'>('adhoc');
   const [url, setUrl] = useState('');
   const [selectedProjectUrlId, setSelectedProjectUrlId] = useState('');
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<AuditResult | null>(null);
+  const [result, setResult] = useState<RunAuditResultMap | null>(null);
+  const [activeDeviceTab, setActiveDeviceTab] = useState<'mobile' | 'desktop'>('mobile');
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
@@ -85,6 +87,7 @@ export default function RunAuditPage() {
         setError(data.error ?? 'Audit failed');
       } else {
         setResult(data);
+        setActiveDeviceTab('mobile'); // default to mobile tab when result loads
       }
     } catch {
       setError('Network error — is the server running?');
@@ -92,6 +95,8 @@ export default function RunAuditPage() {
       setRunning(false);
     }
   }
+
+  const activeResult = result ? result[activeDeviceTab] : null;
 
   return (
     <div style={styles.container}>
@@ -103,21 +108,24 @@ export default function RunAuditPage() {
 
       <form onSubmit={handleRun} style={styles.form}>
         {/* Mode toggle */}
-        <div style={styles.modeToggle}>
-          <button
-            type="button"
-            onClick={() => setMode('adhoc')}
-            style={{ ...styles.modeBtn, ...(mode === 'adhoc' ? styles.modeBtnActive : {}) }}
-          >
-            Any URL
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('project')}
-            style={{ ...styles.modeBtn, ...(mode === 'project' ? styles.modeBtnActive : {}) }}
-          >
-            Project URL
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+          {/* Mode selector */}
+          <div style={styles.modeToggle}>
+            <button
+              type="button"
+              onClick={() => setMode('adhoc')}
+              style={{ ...styles.modeBtn, ...(mode === 'adhoc' ? styles.modeBtnActive : {}) }}
+            >
+              Any URL
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('project')}
+              style={{ ...styles.modeBtn, ...(mode === 'project' ? styles.modeBtnActive : {}) }}
+            >
+              Project URL
+            </button>
+          </div>
         </div>
 
         {mode === 'adhoc' ? (
@@ -154,7 +162,7 @@ export default function RunAuditPage() {
         )}
 
         <button type="submit" disabled={running} style={styles.runBtn}>
-          {running ? `Running… ${elapsed}s` : '▶ Run Audit'}
+          {running ? `Running audits… ${elapsed}s` : `▶ Run Audits`}
         </button>
       </form>
 
@@ -164,7 +172,7 @@ export default function RunAuditPage() {
           <div>
             <strong>Audit in progress</strong>
             <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
-              Lighthouse is running headless Chrome. This typically takes 15–40 seconds.
+              Lighthouse is running headless Chrome for both mobile and desktop. This typically takes 30–80 seconds.
             </p>
           </div>
         </div>
@@ -176,33 +184,64 @@ export default function RunAuditPage() {
         </div>
       )}
 
-      {result && (
+      {result && activeResult && (
         <div style={styles.resultCard}>
+          {/* Device tabs */}
+          <div style={styles.deviceTabContainer}>
+            <button
+              onClick={() => setActiveDeviceTab('mobile')}
+              style={{
+                ...styles.deviceTab,
+                ...(activeDeviceTab === 'mobile' ? styles.deviceTabActive : {}),
+              }}
+            >
+              <svg style={{ marginRight: '6px' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
+              Mobile
+            </button>
+            <button
+              onClick={() => setActiveDeviceTab('desktop')}
+              style={{
+                ...styles.deviceTab,
+                ...(activeDeviceTab === 'desktop' ? styles.deviceTabActive : {}),
+              }}
+            >
+              <svg style={{ marginRight: '6px' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+              Desktop
+            </button>
+          </div>
+
           <div style={styles.resultHeader}>
             <div>
               <h2 style={{ margin: 0, fontSize: '1.1rem' }}>
-                {result.status === 'success' ? '✅' : '❌'} {result.url}
+                {activeResult.status === 'success' ? '✅' : '❌'} {activeResult.url}
               </h2>
               <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.85rem' }}>
-                {result.status === 'failed' ? `Failed: ${result.error}` : 'Audit completed'}
+                {activeResult.status === 'failed' ? `Failed: ${activeResult.error}` : 'Audit completed'}
               </p>
             </div>
-            {result.status === 'success' && result.auditRunId && !result.auditRunId.startsWith('adhoc-') && (
-              <a href={`/audits/${result.auditRunId}`} style={styles.viewBtn}>
+            {activeResult.status === 'success' && activeResult.auditRunId && !activeResult.auditRunId.startsWith('adhoc-') && (
+              <a href={`/audits/${activeResult.auditRunId}`} style={styles.viewBtn}>
                 View Full Report →
               </a>
             )}
           </div>
 
-          {result.status === 'success' && (
+          {activeResult.status === 'success' && (
             <>
               {/* Scores */}
               <div style={styles.scoresGrid}>
                 {[
-                  { label: 'Performance', score: result.performanceScore },
-                  { label: 'Accessibility', score: result.accessibilityScore },
-                  { label: 'SEO', score: result.seoScore },
-                  { label: 'Best Practices', score: result.bestPracticesScore },
+                  { label: 'Performance', score: activeResult.performanceScore },
+                  { label: 'Accessibility', score: activeResult.accessibilityScore },
+                  { label: 'SEO', score: activeResult.seoScore },
+                  { label: 'Best Practices', score: activeResult.bestPracticesScore },
                 ].map(({ label, score }) => (
                   <div key={label} style={styles.scoreCard}>
                     <ScoreBadge score={score} size="lg" />
@@ -216,11 +255,11 @@ export default function RunAuditPage() {
                 <h3 style={styles.sectionTitle}>Core Web Vitals</h3>
                 <div style={styles.vitalsGrid}>
                   {[
-                    { label: 'LCP', value: result.coreWebVitals.lcp, isCls: false, good: 2500, poor: 4000 },
-                    { label: 'CLS', value: result.coreWebVitals.cls, isCls: true, good: 0.1, poor: 0.25 },
-                    { label: 'INP/TBT', value: result.coreWebVitals.inpOrTbt, isCls: false, good: 200, poor: 500 },
-                    { label: 'FCP', value: result.coreWebVitals.fcp, isCls: false, good: 1800, poor: 3000 },
-                    { label: 'Speed Index', value: result.coreWebVitals.speedIndex, isCls: false, good: 3400, poor: 5800 },
+                    { label: 'LCP', value: activeResult.coreWebVitals.lcp, isCls: false, good: 2500, poor: 4000 },
+                    { label: 'CLS', value: activeResult.coreWebVitals.cls, isCls: true, good: 0.1, poor: 0.25 },
+                    { label: 'INP/TBT', value: activeResult.coreWebVitals.inpOrTbt, isCls: false, good: 200, poor: 500 },
+                    { label: 'FCP', value: activeResult.coreWebVitals.fcp, isCls: false, good: 1800, poor: 3000 },
+                    { label: 'Speed Index', value: activeResult.coreWebVitals.speedIndex, isCls: false, good: 3400, poor: 5800 },
                   ].map(({ label, value, isCls, good, poor }) => {
                     const status = value === null ? 'unknown' : value <= good ? 'good' : value <= poor ? 'needs-improvement' : 'poor';
                     const color = status === 'good' ? '#065f46' : status === 'needs-improvement' ? '#92400e' : status === 'poor' ? '#991b1b' : '#9ca3af';
@@ -242,11 +281,11 @@ export default function RunAuditPage() {
               </div>
 
               {/* Opportunities */}
-              {result.opportunities.length > 0 && (
+              {activeResult.opportunities.length > 0 && (
                 <div style={styles.section}>
                   <h3 style={styles.sectionTitle}>Top Opportunities</h3>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
-                    {result.opportunities.map(opp => (
+                    {activeResult.opportunities.map(opp => (
                       <li key={opp.id} style={{ marginBottom: '0.4rem', fontSize: '0.9rem' }}>
                         <strong>{opp.title}</strong>
                         {opp.savingsMs !== undefined && opp.savingsMs > 0 && (
@@ -261,11 +300,11 @@ export default function RunAuditPage() {
               )}
 
               {/* AI Summary */}
-              {result.aiSummary && (
+              {activeResult.aiSummary && (
                 <div style={styles.section}>
                   <h3 style={styles.sectionTitle}>AI Engineering Summary</h3>
                   <div style={styles.summaryBox}>
-                    {result.aiSummary.split('\n').map((line, i) => {
+                    {activeResult.aiSummary.split('\n').map((line, i) => {
                       if (line.startsWith('## ')) {
                         return <h4 key={i} style={{ margin: '0.75rem 0 0.25rem', fontSize: '0.95rem', color: '#1f2937' }}>{line.replace('## ', '')}</h4>;
                       }
@@ -279,13 +318,13 @@ export default function RunAuditPage() {
               )}
 
               {/* Agent Investigation Prompts */}
-              {result.agentPrompts && result.agentPrompts.length > 0 && (
+              {activeResult.agentPrompts && activeResult.agentPrompts.length > 0 && (
                 <div style={styles.section}>
                   <h3 style={styles.sectionTitle}>🤖 Agent Investigation Prompts</h3>
                   <p style={{ margin: '-0.5rem 0 0.75rem', fontSize: '0.8rem', color: '#6b7280' }}>
                     Paste into Cursor, Copilot, or Claude to find root causes — not implement fixes.
                   </p>
-                  {result.agentPrompts.map((p, i) => (
+                  {activeResult.agentPrompts.map((p, i) => (
                     <AgentPromptCard key={p.opportunityId} prompt={p} index={i} />
                   ))}
                 </div>
@@ -305,8 +344,8 @@ const styles: Record<string, React.CSSProperties> = {
   title: { margin: '0.5rem 0 0.25rem', fontSize: '1.75rem' },
   subtitle: { margin: 0, color: '#6b7280', fontSize: '0.9rem' },
   form: { backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.5rem', marginBottom: '1.5rem' },
-  modeToggle: { display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' },
-  modeBtn: { padding: '0.4rem 1rem', borderRadius: '6px', border: '1px solid #d1d5db', borderColor: '#d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontSize: '0.875rem', color: '#374151' },
+  modeToggle: { display: 'flex', gap: '0.5rem' },
+  modeBtn: { padding: '0.4rem 1rem', borderRadius: '6px', border: '1px solid #d1d5db', borderColor: '#d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontSize: '0.875rem', color: '#374151', fontWeight: 500 },
   modeBtnActive: { backgroundColor: '#2563eb', color: '#fff', borderColor: '#2563eb' },
   field: { marginBottom: '1rem' },
   label: { display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.4rem' },
@@ -326,4 +365,32 @@ const styles: Record<string, React.CSSProperties> = {
   vitalsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' },
   vitalCard: { borderRadius: '6px', padding: '0.75rem', textAlign: 'center' as const },
   summaryBox: { backgroundColor: '#f9fafb', borderRadius: '6px', padding: '1rem', fontSize: '0.875rem', lineHeight: 1.6 },
+  deviceTabContainer: {
+    display: 'flex',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    backgroundColor: '#f1f5f9',
+    padding: '3px',
+    alignSelf: 'flex-start',
+    width: 'fit-content',
+    marginBottom: '1.5rem',
+  },
+  deviceTab: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0.4rem 1.2rem',
+    border: 'none',
+    backgroundColor: 'transparent',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontWeight: 600,
+    borderRadius: '6px',
+    transition: 'all 0.2s',
+  },
+  deviceTabActive: {
+    backgroundColor: '#fff',
+    color: '#0f172a',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)',
+  },
 };

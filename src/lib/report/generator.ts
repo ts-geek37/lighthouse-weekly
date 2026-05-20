@@ -65,6 +65,7 @@ export async function generateReport(
       },
       opportunities,
       aiSummary: run.aiSummary,
+      device: run.device as 'mobile' | 'desktop',
     };
 
     projectMap.get(projectId)!.urlReports.push(urlReport);

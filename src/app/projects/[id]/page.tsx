@@ -15,6 +15,7 @@ interface RecentAudit {
   seoScore: number | null;
   bestPracticesScore: number | null;
   createdAt: string;
+  device: 'mobile' | 'desktop';
 }
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -138,8 +139,23 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
                   {latest ? (
                     <div style={styles.latestScores}>
-                      <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
-                        Latest: {new Date(latest.createdAt).toLocaleDateString()}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                          Latest: {new Date(latest.createdAt).toLocaleDateString()}
+                        </div>
+                        <span style={{
+                          display: 'inline-block',
+                          background: latest.device === 'desktop' ? '#eff6ff' : '#fff1f2',
+                          color: latest.device === 'desktop' ? '#1e40af' : '#9f1239',
+                          borderColor: latest.device === 'desktop' ? '#bfdbfe' : '#fecdd3',
+                          border: '1px solid',
+                          padding: '0.05rem 0.35rem',
+                          borderRadius: '4px',
+                          fontSize: '0.65rem',
+                          fontWeight: 500,
+                        }}>
+                          {latest.device === 'desktop' ? '💻 Desktop' : '📱 Mobile'}
+                        </span>
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         {[
@@ -191,7 +207,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               {recentAudits.map(run => (
                 <tr key={run.id} style={styles.tr}>
                   <td style={styles.td}>
-                    <span style={styles.pageTypeBadge}>{run.pageType}</span>
+                    <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', marginBottom: '0.2rem' }}>
+                      <span style={styles.pageTypeBadge}>{run.pageType}</span>
+                      <span style={{
+                        ...styles.pageTypeBadge,
+                        backgroundColor: run.device === 'desktop' ? '#eff6ff' : '#fff1f2',
+                        color: run.device === 'desktop' ? '#1e40af' : '#9f1239',
+                        borderColor: run.device === 'desktop' ? '#bfdbfe' : '#fecdd3',
+                        border: '1px solid',
+                        marginRight: 0,
+                      }}>
+                        {run.device === 'desktop' ? '💻 Desktop' : '📱 Mobile'}
+                      </span>
+                    </div>
                     <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
                       {run.url.length > 45 ? run.url.slice(0, 45) + '…' : run.url}
                     </div>

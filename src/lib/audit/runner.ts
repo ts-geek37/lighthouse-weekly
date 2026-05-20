@@ -5,12 +5,13 @@ import { LighthouseResult } from '@/types';
 
 export interface AuditRunnerOptions {
   url: string;
+  device?: 'mobile' | 'desktop';
   timeoutMs?: number;
   maxRetries?: number;
 }
 
 export type AuditRunnerResult =
-  | { success: true; lhr: LighthouseResult }
+  | { success: true; lhr: LighthouseResult; htmlReport: string }
   | { success: false; error: string };
 
 /**
@@ -22,7 +23,7 @@ export async function runAudit(
   options: AuditRunnerOptions,
   log: Logger
 ): Promise<AuditRunnerResult> {
-  const { url, timeoutMs = 60_000, maxRetries = 2 } = options;
+  const { url, device = 'mobile', timeoutMs = 60_000, maxRetries = 2 } = options;
 
   let lastError = '';
 
@@ -44,9 +45,24 @@ export async function runAudit(
       const runnerResult = await Promise.race([
         lighthouse(url, {
           port: chrome.port,
-          output: 'json',
+          output: ['json', 'html'],
           onlyCategories: ['performance', 'accessibility', 'seo', 'best-practices'],
           logLevel: 'silent',
+          ...(device === 'desktop' ? {
+            formFactor: 'desktop',
+            screenEmulation: {
+              mobile: false,
+              width: 1350,
+              height: 940,
+              deviceScaleFactor: 1,
+              disabled: false,
+            },
+            throttling: {
+              rttMs: 40,
+              throughputKbps: 10 * 1024,
+              cpuSlowdownMultiplier: 1,
+            },
+          } : {})
         }),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error(`Audit timed out after ${timeoutMs}ms`)), timeoutMs)
@@ -59,7 +75,13 @@ export async function runAudit(
 
       log.info({ stage: 'audit-runner', url, attempt }, 'Lighthouse audit completed successfully');
 
-      return { success: true, lhr: runnerResult.lhr as unknown as LighthouseResult };
+      const lhr = runnerResult.lhr as unknown as LighthouseResult;
+      // runnerResult.report is an array [jsonReport, htmlReport] when output is ['json', 'html']
+      const htmlReport = Array.isArray(runnerResult.report) 
+        ? runnerResult.report[1] 
+        : (runnerResult.report as string);
+
+      return { success: true, lhr, htmlReport };
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
 

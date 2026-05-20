@@ -25,7 +25,7 @@ export class WeeklyIntelligenceService {
   /**
    * Generates or fetches the numerical weekly performance intelligence report for a project.
    */
-  static async getComparisonReport(projectId: string): Promise<ProjectComparisonReport> {
+  static async getComparisonReport(projectId: string, device: "mobile" | "desktop" = "mobile"): Promise<ProjectComparisonReport> {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -42,11 +42,12 @@ export class WeeklyIntelligenceService {
     const urlReports: UrlComparisonResult[] = [];
 
     for (const projectUrl of project.urls) {
-      // 1. Fetch latest 2 successful runs
+      // 1. Fetch latest 2 successful runs for the specific device
       const runs = await prisma.auditRun.findMany({
         where: {
           projectUrlId: projectUrl.id,
           status: "success",
+          device,
         },
         orderBy: {
           createdAt: "desc",
@@ -54,11 +55,12 @@ export class WeeklyIntelligenceService {
         take: 2,
       });
 
-      // 2. Fetch last 10 successful runs for trend charts
+      // 2. Fetch last 10 successful runs for trend charts for the specific device
       const historicalRunsData = await prisma.auditRun.findMany({
         where: {
           projectUrlId: projectUrl.id,
           status: "success",
+          device,
         },
         orderBy: {
           createdAt: "desc",
@@ -483,9 +485,9 @@ Provide a structured engineering report matching the exact format below:
         temperature: 0.1,
       });
 
-      console.log("Prompt tokens:", completion.usage?.prompt_tokens);
-      console.log("Completion tokens:", completion.usage?.completion_tokens);
-      console.log("Total tokens:", completion.usage?.total_tokens);
+      // console.log("Prompt tokens:", completion.usage?.prompt_tokens);
+      // console.log("Completion tokens:", completion.usage?.completion_tokens);
+      // console.log("Total tokens:", completion.usage?.total_tokens);
 
       const aiInsight = completion.choices[0]?.message?.content || "Failed to generate AI insights.";
 

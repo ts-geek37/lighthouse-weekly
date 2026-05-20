@@ -522,10 +522,10 @@ MANDATORY INSTRUCTIONS for this run:
     : "";
 
   const systemPrompt = `You are a senior staff web performance engineer and root-cause analysis (RCA) specialist writing a precise, actionable internal report.
-Your analysis must be grounded entirely in the provided metrics, classifications, situations, and opportunities. You must not hallucinate or change metrics.
+Your analysis must be grounded entirely in the provided metrics, classifications, situations, opportunities, and diagnostic evidence. You must not hallucinate or change metrics.
 
 The AI must only provide insights that are NOT immediately obvious from the visible report data.
-Do NOT simply restate or narrate the numbers, scores, or opportunities that the user can already see. Instead, add engineering interpretation, causal reasoning, and cross-metric analysis.
+Do NOT simply restate or narrate the numbers, scores, or opportunities that the user can already see. Instead, add engineering interpretation, causal reasoning, cross-metric analysis, and pinpoint specific culprit resources/elements based on the advanced diagnostics evidence.
 
 Write a report with EXACTLY these three sections. Do not add any other sections.
 
@@ -533,23 +533,114 @@ Write a report with EXACTLY these three sections. Do not add any other sections.
 - State each passing metric with its exact value and exact margin to threshold. Avoid generic "everything is healthy" statements.
 - For scores ≥90: name the specific score and provide concrete engineering commentary on why it is high.
 - If a metric is AT_RISK, highlight it proactively.
+- USE BULLET POINTS for every point.
 
 ## Needs Attention
+- USE BULLET POINTS for each issue. DO NOT write long paragraphs.
 - Avoid generic Lighthouse definitions. Explain the causal relationships (e.g. how unused JS blocks the main thread and impacts TBT/INP, or how CSS render-blocking delays FCP/LCP).
+- Reference specific filenames, script URLs, third-party entity names, LCP node label/snippet, CLS culprit element node labels, and wasted bytes/ms from the diagnostics section when explaining issues.
+- Truncate long URLs (e.g., \`https://example.com/.../file.js\`) to keep the report highly readable.
 - Explain why opportunities with no savings estimate still matter (e.g. how cache TTL affects repeat visits but is invisible on first loads).
 - Connect opportunities to specific threatened metrics (e.g., "render-blocking resources directly threaten LCP (currently 446ms from threshold) on slower connections").
 
 ## Recommended Fixes
 - List in order of estimated impact (highest savings first).
-- For each entry, specify the opportunity name, quantified savings, and a concrete, actionable codebase search or investigation step (e.g., specific dynamic imports, tree-shaking, font-display swapping).
+- For each entry, specify the opportunity name, quantified savings, and a concrete, actionable codebase search or investigation step (e.g., specific dynamic imports, tree-shaking, font-display swapping). Reference specific files or selectors where applicable.
 
 RECOMMENDED FIXES FORMAT (mandatory for every entry):
   [Opportunity name] ([savings or "risk: <one-line risk>"]) — [specific action: suggest what codebase patterns to search for or check]
 
-GUIDELINES:
+CRITICAL FORMATTING GUIDELINES:
+- **NEVER** write long blocks of text or paragraphs.
+- **ALWAYS** use bullet points (\`- \`) for every observation in the Good and Needs Attention sections.
+- **ALWAYS** truncate long query strings or hashes in URLs to keep them readable.
 - Avoid generic Lighthouse explanations, metric narration, or filler observations.
 - Do not repeat the same point across sections.
-- Write with a senior engineer's analytical tone.`;
+- Write with a senior engineer's analytical, concise tone.`;
+
+  const diag = metrics.advancedDiagnostics;
+  let evidenceText = "";
+  if (diag) {
+    const lcpElemText = diag.lcpElement
+      ? `LCP ELEMENT DETAILS:
+  - Node Label: ${diag.lcpElement.nodeLabel}
+  - Code Snippet: ${diag.lcpElement.snippet || 'N/A'}
+  - Path: ${diag.lcpElement.path || 'N/A'}`
+      : "LCP ELEMENT DETAILS: N/A";
+
+    const clsCulprits = diag.layoutShiftElements.length > 0
+      ? diag.layoutShiftElements.map((item, i) => `  ${i+1}. Element: "${item.nodeLabel}" (Score: ${item.score.toFixed(4)})${item.snippet ? `\n     Snippet: ${item.snippet}` : ""}`).join("\n")
+      : "None";
+
+    const renderBlockingText = diag.renderBlockingResources.length > 0
+      ? diag.renderBlockingResources.map((item, i) => `  ${i+1}. ${item.url} (Wasted: ${item.wastedMs}ms, Size: ${Math.round(item.totalBytes / 1024)}KB)`).join("\n")
+      : "None";
+
+    const thirdPartyText = diag.thirdPartySummary.length > 0
+      ? diag.thirdPartySummary.map((item, i) => `  ${i+1}. Entity: ${item.entityName} (Main-Thread Time: ${item.mainThreadTime}ms, Blocking Time: ${item.blockingTime}ms, Transfer Size: ${Math.round(item.transferSize / 1024)}KB)`).join("\n")
+      : "None";
+
+    const bootupText = diag.bootupTime.length > 0
+      ? diag.bootupTime.slice(0, 10).map((item, i) => `  ${i+1}. URL: ${item.url}\n     Total: ${item.total}ms (Scripting: ${item.scripting}ms, Parse/Compile: ${item.scriptParseCompile}ms)`).join("\n")
+      : "None";
+
+    const duplicatedJsText = diag.duplicatedJavascript.length > 0
+      ? diag.duplicatedJavascript.map((item, i) => `  ${i+1}. Source: ${item.source} (Wasted Bytes: ${Math.round(item.wastedBytes / 1024)}KB)\n     URLs: ${item.url}`).join("\n")
+      : "None";
+
+    const legacyJsText = diag.legacyJavascript.length > 0
+      ? diag.legacyJavascript.map((item, i) => `  ${i+1}. URL: ${item.url} (Wasted Bytes: ${Math.round(item.wastedBytes / 1024)}KB)\n     Signals: ${item.signals.join(', ')}`).join("\n")
+      : "None";
+
+    const longTasksText = diag.longTasks.length > 0
+      ? diag.longTasks.slice(0, 10).map((item, i) => `  ${i+1}. Start: ${item.startTime}ms, Duration: ${item.duration}ms${item.url ? ` (Url: ${item.url})` : ""}`).join("\n")
+      : "None";
+
+    const unusedJsText = diag.unusedJavascript.length > 0
+      ? diag.unusedJavascript.slice(0, 5).map((item, i) => `  ${i+1}. URL: ${item.url} (Wasted: ${Math.round(item.wastedBytes / 1024)}KB / Total: ${Math.round(item.totalBytes / 1024)}KB)`).join("\n")
+      : "None";
+
+    const unusedCssText = diag.unusedCssRules.length > 0
+      ? diag.unusedCssRules.slice(0, 5).map((item, i) => `  ${i+1}. URL: ${item.url} (Wasted: ${Math.round(item.wastedBytes / 1024)}KB / Total: ${Math.round(item.totalBytes / 1024)}KB)`).join("\n")
+      : "None";
+
+    const domSizeText = diag.domSize !== null ? `${diag.domSize} elements` : "N/A";
+
+    evidenceText = `
+--- ADVANCED DIAGNOSTICS & AUDIT EVIDENCE ---
+
+DOM Size: ${domSizeText}
+
+${lcpElemText}
+
+CLS CULPRIT ELEMENTS:
+${clsCulprits}
+
+RENDER-BLOCKING RESOURCES:
+${renderBlockingText}
+
+THIRD-PARTY ATTRIBUTION (SUMMARY):
+${thirdPartyText}
+
+BOOTUP TIME / SCRIPT OWNERSHIP BREAKDOWN (Top 10):
+${bootupText}
+
+UNUSED JAVASCRIPT PAYLOADS:
+${unusedJsText}
+
+UNUSED CSS PAYLOADS:
+${unusedCssText}
+
+DUPLICATED JAVASCRIPT:
+${duplicatedJsText}
+
+LEGACY JAVASCRIPT:
+${legacyJsText}
+
+CPU LONG TASKS EVIDENCE (Top 10):
+${longTasksText}
+`;
+  }
 
   const userPrompt = `PAGE: ${url} (${pageType})
 
@@ -567,6 +658,7 @@ ${classificationsText}
 ${situationsBlock}${falseGreenDirective}
 OPPORTUNITIES FLAGGED BY LIGHTHOUSE (in order of estimated impact):
 ${oppsText}
+${evidenceText}
 
 Note: ${situations.length > 0 ? "The SYSTEM CONCLUSIONS above are pre-verified facts. Do not contradict them." : "Metric classifications are pre-verified facts. Do not contradict them."}`;
 
@@ -803,9 +895,9 @@ export async function generateSummary(
         ],
       });
 
-      console.log("Prompt tokens:", completion.usage?.prompt_tokens);
-      console.log("Completion tokens:", completion.usage?.completion_tokens);
-      console.log("Total tokens:", completion.usage?.total_tokens);
+      // console.log("Prompt tokens:", completion.usage?.prompt_tokens);
+      // console.log("Completion tokens:", completion.usage?.completion_tokens);
+      // console.log("Total tokens:", completion.usage?.total_tokens);
 
       const content = completion.choices[0]?.message?.content;
       if (!content) throw new Error("Groq returned empty content");

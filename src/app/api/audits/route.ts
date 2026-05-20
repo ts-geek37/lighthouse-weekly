@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         fcp: run.fcp,
         speedIndex: run.speedIndex,
         aiSummary: run.aiSummary,
+        device: run.device,
         createdAt: run.createdAt.toISOString(),
       })),
       pagination: {

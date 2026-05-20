@@ -102,9 +102,6 @@ export default function AuditHistoryPage() {
               {runs.map(run => (
                 <tr key={run.id} style={styles.tr}>
                   <td style={styles.td}>
-                    <div style={{ fontSize: '0.85rem' }}>
-                      <span style={styles.pageTypeBadge}>{run.pageType}</span>
-                    </div>
                     <a href={run.url} target="_blank" rel="noopener noreferrer" style={styles.urlLink}>
                       {run.url.length > 50 ? run.url.slice(0, 50) + '…' : run.url}
                     </a>
