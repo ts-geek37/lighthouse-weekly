@@ -78,6 +78,113 @@ export interface AiSummaryOutput {
   agentPrompts: AgentPrompt[];
 }
 
+export interface ThirdPartySummaryItem {
+  entityName: string;
+  transferSize: number;
+  mainThreadTime: number;
+  blockingTime: number;
+}
+
+export interface BootupTimeItem {
+  url: string;
+  total: number;
+  scripting: number;
+  scriptParseCompile: number;
+}
+
+export interface MainthreadWorkBreakdownItem {
+  group: string;
+  groupLabel: string;
+  duration: number;
+}
+
+export interface DiagnosticsItem {
+  numRequests?: number;
+  numScripts?: number;
+  numStylesheets?: number;
+  numFonts?: number;
+  numTasks?: number;
+  rtt?: number;
+  throughput?: number;
+  maxRtt?: number;
+  maxServerLatency?: number;
+  totalByteWeight?: number;
+  totalTaskTime?: number;
+}
+
+export interface NetworkRequestItem {
+  url: string;
+  protocol: string;
+  startTime: number;
+  endTime: number;
+  transferSize: number;
+  resourceSize: number;
+  statusCode: number;
+  mimeType: string;
+  resourceType: string;
+}
+
+export interface LongTaskItem {
+  url?: string;
+  duration: number;
+  startTime: number;
+}
+
+export interface DuplicatedJavascriptItem {
+  source: string;
+  wastedBytes: number;
+  url: string;
+}
+
+export interface LegacyJavascriptItem {
+  url: string;
+  wastedBytes: number;
+  signals: string[];
+}
+
+export interface RenderBlockingResourceItem {
+  url: string;
+  wastedMs: number;
+  totalBytes: number;
+}
+
+export interface LcpElementItem {
+  nodeLabel: string;
+  path?: string;
+  snippet?: string;
+}
+
+export interface LayoutShiftElementItem {
+  nodeLabel: string;
+  snippet?: string;
+  score: number;
+}
+
+export interface ScreenshotThumbnailItem {
+  data: string;
+  timing: number;
+}
+
+export interface AdvancedDiagnostics {
+  thirdPartySummary: ThirdPartySummaryItem[];
+  bootupTime: BootupTimeItem[];
+  mainthreadWorkBreakdown: MainthreadWorkBreakdownItem[];
+  diagnostics: DiagnosticsItem | null;
+  networkRequests: NetworkRequestItem[];
+  longTasks: LongTaskItem[];
+  duplicatedJavascript: DuplicatedJavascriptItem[];
+  legacyJavascript: LegacyJavascriptItem[];
+  renderBlockingResources: RenderBlockingResourceItem[];
+  criticalRequestChains: Record<string, unknown> | null;
+  lcpElement: LcpElementItem | null;
+  layoutShiftElements: LayoutShiftElementItem[];
+  screenshotThumbnails: ScreenshotThumbnailItem[];
+  finalScreenshot: string | null;
+  domSize: number | null;
+  unusedJavascript: { url: string; wastedBytes: number; totalBytes: number }[];
+  unusedCssRules: { url: string; wastedBytes: number; totalBytes: number }[];
+}
+
 export interface ExtractedMetrics {
   performanceScore: number | null;
   accessibilityScore: number | null;
@@ -88,7 +195,9 @@ export interface ExtractedMetrics {
   inpOrTbt: number | null;
   fcp: number | null;
   speedIndex: number | null;
+  ttfb: number | null;
   opportunities: Opportunity[];
+  advancedDiagnostics?: AdvancedDiagnostics;
 }
 
 export type MetricSituation =
@@ -158,6 +267,7 @@ export interface ProjectResponse {
   owner: string;
   priority: string;
   environment: Environment;
+  reportEmail: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -178,9 +288,11 @@ export interface UrlReport {
     inpOrTbt: number | null;
     fcp: number | null;
     speedIndex: number | null;
+    ttfb: number | null;
   };
   opportunities: Opportunity[];
   aiSummary: string | null;
+  device: 'mobile' | 'desktop';
 }
 
 export interface ProjectReport {
@@ -188,6 +300,7 @@ export interface ProjectReport {
   projectTitle: string;
   owner: string;
   environment: Environment;
+  reportEmail: string | null;
   urls: UrlReport[];
 }
 

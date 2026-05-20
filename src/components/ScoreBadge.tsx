@@ -1,42 +1,27 @@
-import React from 'react';
-
 interface ScoreBadgeProps {
   score: number | null;
   size?: 'sm' | 'md' | 'lg';
 }
 
-function getScoreColor(score: number | null): { bg: string; text: string } {
-  if (score === null) return { bg: '#f3f4f6', text: '#6b7280' };
-  if (score >= 90) return { bg: '#d1fae5', text: '#065f46' };
-  if (score >= 50) return { bg: '#fef3c7', text: '#92400e' };
-  return { bg: '#fee2e2', text: '#991b1b' };
-}
+const scoreToneClass = (score: number | null): string => {
+  if (score === null) return 'bg-gray-100 text-gray-500';
+  if (score >= 90) return 'bg-emerald-100 text-emerald-800';
+  if (score >= 50) return 'bg-amber-100 text-amber-800';
+  return 'bg-red-100 text-red-800';
+};
 
-export function ScoreBadge({ score, size = 'md' }: ScoreBadgeProps) {
-  const { bg, text } = getScoreColor(score);
-  const fontSize = size === 'lg' ? '1.5rem' : size === 'sm' ? '0.75rem' : '1rem';
-  const padding = size === 'lg' ? '0.5rem 1rem' : size === 'sm' ? '0.2rem 0.45rem' : '0.25rem 0.6rem';
-  const minWidth = size === 'lg' ? '64px' : size === 'sm' ? '38px' : '48px';
+const sizeClass: Record<NonNullable<ScoreBadgeProps['size']>, string> = {
+  sm: 'min-w-[38px] px-2 py-1 text-xs',
+  md: 'min-w-12 px-2.5 py-1 text-base',
+  lg: 'min-w-16 px-4 py-2 text-2xl',
+};
 
-  // Round to integer so we never show decimals like 97.3
+export const ScoreBadge = ({ score, size = 'md' }: ScoreBadgeProps) => {
   const display = score !== null ? Math.round(score) : null;
 
   return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: bg,
-      color: text,
-      fontWeight: 700,
-      fontSize,
-      padding,
-      borderRadius: '6px',
-      minWidth,
-      boxSizing: 'border-box',
-      lineHeight: 1,
-    }}>
+    <span className={`inline-flex box-border items-center justify-center rounded-md font-bold leading-none ${scoreToneClass(score)} ${sizeClass[size]}`}>
       {display !== null ? display : 'N/A'}
     </span>
   );
-}
+};

@@ -156,10 +156,10 @@ const ZERO_SAVINGS_RISK_RATIONALE: Record<string, string> = {
     "unused CSS bloats the render-blocking stylesheet payload, delaying FCP on first load",
 };
 
-export function resolveCausalRules(
+export const resolveCausalRules = (
   metrics: ExtractedMetrics,
   opportunities: Opportunity[],
-): ResolvedCausalRule[] {
+): ResolvedCausalRule[] => {
   const resolved: ResolvedCausalRule[] = [];
   for (const opp of opportunities) {
     const rule = OPPORTUNITY_CAUSAL_RULES[opp.id];
@@ -175,11 +175,11 @@ export function resolveCausalRules(
   return resolved;
 }
 
-export function detectSituations(
+export const detectSituations =(
   metrics: ExtractedMetrics,
   pageType: string,
   opportunities: Opportunity[],
-): DetectedSituation[] {
+): DetectedSituation[] => {
   const situations: DetectedSituation[] = [];
   const pageRule = PAGE_TYPE_RULES[pageType] ?? PAGE_TYPE_RULES["default"];
   const classifications = classifyAllMetrics(metrics);
@@ -256,10 +256,10 @@ export function detectSituations(
   return situations;
 }
 
-export function classifyMetric(
+export const classifyMetric =(
   key: keyof typeof THRESHOLDS,
   value: number | null,
-): MetricSituation {
+): MetricSituation => {
   if (value === null) return "GOOD";
   const t = THRESHOLDS[key];
   if (value > t.poor) return "CRITICAL";
@@ -269,9 +269,9 @@ export function classifyMetric(
   return "GOOD";
 }
 
-export function classifyAllMetrics(
+export const classifyAllMetrics = (
   metrics: ExtractedMetrics,
-): MetricClassification {
+): MetricClassification => {
   return {
     lcp: classifyMetric("lcp", metrics.lcp),
     cls: classifyMetric("cls", metrics.cls),
@@ -281,12 +281,12 @@ export function classifyAllMetrics(
   };
 }
 
-function scoreLabel(score: number | null): string {
+const scoreLabel = (score: number | null): string => {
   if (score === null) return "N/A";
   if (score >= 90) return `${score}/100 (Good)`;
   if (score >= 50) return `${score}/100 (Needs Improvement)`;
   return `${score}/100 (Poor)`;
-}
+};
 
 const INVESTIGATION_STEPS: Record<string, InvestigationStepFn> = {
   "unused-javascript": (metrics, situation) => {
@@ -349,11 +349,11 @@ Report: list each asset type with its current TTL, whether it has content-hash, 
 Report: list each source of unused CSS with file location, estimated size, and why it's unused`,
 };
 
-export function getInvestigationSteps(
+export const getInvestigationSteps = (
   opportunityId: string,
   metrics: ExtractedMetrics,
   situation: MetricSituation,
-): string {
+): string => {
   const fn = INVESTIGATION_STEPS[opportunityId];
   if (fn) return fn(metrics, situation);
   return `
@@ -364,7 +364,7 @@ export function getInvestigationSteps(
 Report: describe what you found, where it is, and what change would address it`;
 }
 
-function margin(key: keyof typeof THRESHOLDS, value: number | null): string {
+const margin = (key: keyof typeof THRESHOLDS, value: number | null): string => {
   if (value === null) return "";
   const t = THRESHOLDS[key];
   const unit = t.unit;
@@ -378,12 +378,12 @@ function margin(key: keyof typeof THRESHOLDS, value: number | null): string {
   return diff > 0
     ? ` (${diff}${unit} below the ${t.good}${unit} good threshold)`
     : ` (${Math.abs(diff)}${unit} above the ${t.good}${unit} good threshold — FAILING)`;
-}
+};
 
-export function buildSummaryPrompt(
+export const buildSummaryPrompt = (
   input: AiSummaryInput,
   ruleOutput: RuleEngineOutput,
-): string {
+): { system: string; user: string } => {
   const { url, pageType, metrics } = input;
   const { classifications, situations } = ruleOutput;
 
@@ -521,15 +521,134 @@ MANDATORY INSTRUCTIONS for this run:
       })()
     : "";
 
-  return `You are a senior web performance engineer writing a precise, actionable internal report. You do not write generic advice. Every sentence must be grounded in the specific numbers below.
+  const systemPrompt = `You are a senior staff web performance engineer and root-cause analysis (RCA) specialist writing a precise, actionable internal report.
+Your analysis must be grounded entirely in the provided metrics, classifications, situations, opportunities, and diagnostic evidence. You must not hallucinate or change metrics.
 
-PAGE: ${url} (${pageType})
+The AI must only provide insights that are NOT immediately obvious from the visible report data.
+Do NOT simply restate or narrate the numbers, scores, or opportunities that the user can already see. Instead, add engineering interpretation, causal reasoning, cross-metric analysis, and pinpoint specific culprit resources/elements based on the advanced diagnostics evidence.
+
+Write a report with EXACTLY these three sections. Do not add any other sections.
+
+## Good
+- State each passing metric with its exact value and exact margin to threshold. Avoid generic "everything is healthy" statements.
+- For scores ≥90: name the specific score and provide concrete engineering commentary on why it is high.
+- If a metric is AT_RISK, highlight it proactively.
+- USE BULLET POINTS for every point.
+
+## Needs Attention
+- USE BULLET POINTS for each issue. DO NOT write long paragraphs.
+- Avoid generic Lighthouse definitions. Explain the causal relationships (e.g. how unused JS blocks the main thread and impacts TBT/INP, or how CSS render-blocking delays FCP/LCP).
+- Reference specific filenames, script URLs, third-party entity names, LCP node label/snippet, CLS culprit element node labels, and wasted bytes/ms from the diagnostics section when explaining issues.
+- Truncate long URLs (e.g., \`https://example.com/.../file.js\`) to keep the report highly readable.
+- Explain why opportunities with no savings estimate still matter (e.g. how cache TTL affects repeat visits but is invisible on first loads).
+- Connect opportunities to specific threatened metrics (e.g., "render-blocking resources directly threaten LCP (currently 446ms from threshold) on slower connections").
+
+## Recommended Fixes
+- List in order of estimated impact (highest savings first).
+- For each entry, specify the opportunity name, quantified savings, and a concrete, actionable codebase search or investigation step (e.g., specific dynamic imports, tree-shaking, font-display swapping). Reference specific files or selectors where applicable.
+
+RECOMMENDED FIXES FORMAT (mandatory for every entry):
+  [Opportunity name] ([savings or "risk: <one-line risk>"]) — [specific action: suggest what codebase patterns to search for or check]
+
+CRITICAL FORMATTING GUIDELINES:
+- **NEVER** write long blocks of text or paragraphs.
+- **ALWAYS** use bullet points (\`- \`) for every observation in the Good and Needs Attention sections.
+- **ALWAYS** truncate long query strings or hashes in URLs to keep them readable.
+- Avoid generic Lighthouse explanations, metric narration, or filler observations.
+- Do not repeat the same point across sections.
+- Write with a senior engineer's analytical, concise tone.`;
+
+  const diag = metrics.advancedDiagnostics;
+  let evidenceText = "";
+  if (diag) {
+    const lcpElemText = diag.lcpElement
+      ? `LCP ELEMENT DETAILS:
+  - Node Label: ${diag.lcpElement.nodeLabel}
+  - Code Snippet: ${diag.lcpElement.snippet || 'N/A'}
+  - Path: ${diag.lcpElement.path || 'N/A'}`
+      : "LCP ELEMENT DETAILS: N/A";
+
+    const clsCulprits = diag.layoutShiftElements.length > 0
+      ? diag.layoutShiftElements.map((item, i) => `  ${i+1}. Element: "${item.nodeLabel}" (Score: ${item.score.toFixed(4)})${item.snippet ? `\n     Snippet: ${item.snippet}` : ""}`).join("\n")
+      : "None";
+
+    const renderBlockingText = diag.renderBlockingResources.length > 0
+      ? diag.renderBlockingResources.map((item, i) => `  ${i+1}. ${item.url} (Wasted: ${item.wastedMs}ms, Size: ${Math.round(item.totalBytes / 1024)}KB)`).join("\n")
+      : "None";
+
+    const thirdPartyText = diag.thirdPartySummary.length > 0
+      ? diag.thirdPartySummary.map((item, i) => `  ${i+1}. Entity: ${item.entityName} (Main-Thread Time: ${item.mainThreadTime}ms, Blocking Time: ${item.blockingTime}ms, Transfer Size: ${Math.round(item.transferSize / 1024)}KB)`).join("\n")
+      : "None";
+
+    const bootupText = diag.bootupTime.length > 0
+      ? diag.bootupTime.slice(0, 10).map((item, i) => `  ${i+1}. URL: ${item.url}\n     Total: ${item.total}ms (Scripting: ${item.scripting}ms, Parse/Compile: ${item.scriptParseCompile}ms)`).join("\n")
+      : "None";
+
+    const duplicatedJsText = diag.duplicatedJavascript.length > 0
+      ? diag.duplicatedJavascript.map((item, i) => `  ${i+1}. Source: ${item.source} (Wasted Bytes: ${Math.round(item.wastedBytes / 1024)}KB)\n     URLs: ${item.url}`).join("\n")
+      : "None";
+
+    const legacyJsText = diag.legacyJavascript.length > 0
+      ? diag.legacyJavascript.map((item, i) => `  ${i+1}. URL: ${item.url} (Wasted Bytes: ${Math.round(item.wastedBytes / 1024)}KB)\n     Signals: ${item.signals.join(', ')}`).join("\n")
+      : "None";
+
+    const longTasksText = diag.longTasks.length > 0
+      ? diag.longTasks.slice(0, 10).map((item, i) => `  ${i+1}. Start: ${item.startTime}ms, Duration: ${item.duration}ms${item.url ? ` (Url: ${item.url})` : ""}`).join("\n")
+      : "None";
+
+    const unusedJsText = diag.unusedJavascript.length > 0
+      ? diag.unusedJavascript.slice(0, 5).map((item, i) => `  ${i+1}. URL: ${item.url} (Wasted: ${Math.round(item.wastedBytes / 1024)}KB / Total: ${Math.round(item.totalBytes / 1024)}KB)`).join("\n")
+      : "None";
+
+    const unusedCssText = diag.unusedCssRules.length > 0
+      ? diag.unusedCssRules.slice(0, 5).map((item, i) => `  ${i+1}. URL: ${item.url} (Wasted: ${Math.round(item.wastedBytes / 1024)}KB / Total: ${Math.round(item.totalBytes / 1024)}KB)`).join("\n")
+      : "None";
+
+    const domSizeText = diag.domSize !== null ? `${diag.domSize} elements` : "N/A";
+
+    evidenceText = `
+--- ADVANCED DIAGNOSTICS & AUDIT EVIDENCE ---
+
+DOM Size: ${domSizeText}
+
+${lcpElemText}
+
+CLS CULPRIT ELEMENTS:
+${clsCulprits}
+
+RENDER-BLOCKING RESOURCES:
+${renderBlockingText}
+
+THIRD-PARTY ATTRIBUTION (SUMMARY):
+${thirdPartyText}
+
+BOOTUP TIME / SCRIPT OWNERSHIP BREAKDOWN (Top 10):
+${bootupText}
+
+UNUSED JAVASCRIPT PAYLOADS:
+${unusedJsText}
+
+UNUSED CSS PAYLOADS:
+${unusedCssText}
+
+DUPLICATED JAVASCRIPT:
+${duplicatedJsText}
+
+LEGACY JAVASCRIPT:
+${legacyJsText}
+
+CPU LONG TASKS EVIDENCE (Top 10):
+${longTasksText}
+`;
+  }
+
+  const userPrompt = `PAGE: ${url} (${pageType})
 
 LIGHTHOUSE SCORES:
 - Performance: ${scoreLabel(metrics.performanceScore)}
 - Accessibility: ${scoreLabel(metrics.accessibilityScore)}
-- SEO: ${scoreLabel(metrics.seoScore)}
 - Best Practices: ${scoreLabel(metrics.bestPracticesScore)}
+- SEO: ${scoreLabel(metrics.seoScore)}
 
 CORE WEB VITALS:
 ${vitalsText}
@@ -539,45 +658,11 @@ ${classificationsText}
 ${situationsBlock}${falseGreenDirective}
 OPPORTUNITIES FLAGGED BY LIGHTHOUSE (in order of estimated impact):
 ${oppsText}
+${evidenceText}
 
----
+Note: ${situations.length > 0 ? "The SYSTEM CONCLUSIONS above are pre-verified facts. Do not contradict them." : "Metric classifications are pre-verified facts. Do not contradict them."}`;
 
-Write a report with EXACTLY these three sections. Do not add any other sections.
-
-## Good
-- State each passing metric with its exact value and exact margin to threshold.
-- For scores ≥90: name the specific score and note what it means (e.g. "SEO 100 — all meta tags, canonical, and structured data present").
-- Do not write generic praise. If a metric is AT_RISK, say so here.
-
-## Needs Attention
-- For each opportunity flagged by Lighthouse: explain what type of resource is likely causing it based on the Lighthouse description, and which specific vital it threatens.
-- If an opportunity has no savings estimate, explain why it still matters (e.g. cache TTL affects repeat-visit performance, not first-load LCP).
-- Connect each opportunity to a specific metric: "render-blocking-resources has no savings estimate but directly threatens LCP (currently 446ms from threshold) and FCP on slower connections."
-- Do NOT skip opportunities just because all vitals are currently GOOD. Flag the risk.
-
-## Recommended Fixes
-- List in order of estimated impact (highest savings first).
-- For each fix: state the opportunity name, the savings, and the SPECIFIC action — not "reduce unused JS" but "audit the 29KB of unused JS (190ms savings) — check for full lodash/moment imports or unshaken barrel files in your bundle."
-- For opportunities with no savings estimate: explain the concrete risk if left unaddressed (e.g. "cache TTL — static assets served without long-lived Cache-Control headers means every repeat visitor re-downloads JS/CSS on each visit").
-- If all vitals are GOOD: frame fixes as "protecting the current score" not "fixing a problem."
-
-RECOMMENDED FIXES FORMAT (mandatory for every entry in ## Recommended Fixes):
-  [Opportunity name] ([savings or "risk: <one-line risk>"]) — [specific action: name the file, import, or config to change]
-
-FORBIDDEN phrases (will be rejected):
-  - "reduce unused JavaScript" without naming a specific import or file
-  - "optimize images" without naming a specific format, attribute, or pipeline step
-  - "improve caching" without naming a specific header or asset type
-  - "no quantified savings" — replace with the concrete risk from the ZERO-SAVINGS RISK block below
-
-RULES:
-${situations.length > 0 ? "- The SYSTEM CONCLUSIONS above are pre-verified facts. Do not contradict them.\n" : "- Metric classifications are pre-verified facts. Do not contradict them.\n"}- Use the METRIC CLASSIFICATIONS to determine severity language (CRITICAL → urgent, AT_RISK → proactive).
-- Every bullet must cite a specific number from the data above.
-- Maximum 5 bullets per section.
-- Do not write "all metrics are within good thresholds" — that is not actionable.
-- Do not repeat the same point across sections.
-- Write for a senior engineer who will act on this immediately.
-- Zero-savings opportunities MUST appear in ## Needs Attention and ## Recommended Fixes with their "Risk if unaddressed" rationale. The phrase "no quantified savings" is FORBIDDEN.`;
+  return { system: systemPrompt, user: userPrompt };
 }
 
 const VITAL_META: Record<
@@ -599,18 +684,17 @@ const ALL_VITALS = [
   "speedIndex",
 ] as const satisfies ReadonlyArray<keyof typeof VITAL_META>;
 
-function buildTrendLines(
+const buildTrendLines = (
   vitals: ReadonlyArray<"lcp" | "cls" | "inpOrTbt" | "fcp" | "speedIndex">,
   metrics: ExtractedMetrics,
   previousMetrics: Partial<ExtractedMetrics>,
-): string {
+): string => {
   const lines: string[] = [];
 
   for (const vital of vitals) {
     const current = metrics[vital];
     const previous = previousMetrics[vital];
 
-    // Skip if either value is null/undefined
     if (current === null || current === undefined) continue;
     if (previous === null || previous === undefined) continue;
 
@@ -618,14 +702,12 @@ function buildTrendLines(
 
     let deltaRatio: number;
     if (previous === 0) {
-      // Guard against divide-by-zero
-      if (current === 0) continue; // no change
-      deltaRatio = 1; // treat as 100% change
+      if (current === 0) continue;
+      deltaRatio = 1;
     } else {
       deltaRatio = Math.abs(current - previous) / previous;
     }
 
-    // Only emit trend line if change exceeds 10%
     if (deltaRatio <= 0.1) continue;
 
     const deltaPercent = Math.round(deltaRatio * 100);
@@ -640,9 +722,9 @@ function buildTrendLines(
 
   if (lines.length === 0) return "";
   return `\n**Trend (vs previous run):**\n${lines.join("\n")}`;
-}
+};
 
-function buildAgentPrompt(
+const buildAgentPrompt = (
   url: string,
   pageType: string,
   opp: Opportunity,
@@ -651,7 +733,7 @@ function buildAgentPrompt(
   steps: string,
   rank: number,
   previousMetrics?: Partial<ExtractedMetrics>,
-): string {
+): string => {
   const savings = [
     opp.savingsMs ? `~${opp.savingsMs}ms load time` : "",
     opp.savingsBytes
@@ -691,37 +773,37 @@ ${savings ? `**Estimated savings if fixed:** ${savings}` : ""}${contextBlock}
 
 ## Your task
 
-You are a performance investigator. Do NOT implement any fixes yet.
+You are an expert performance investigator. Do NOT implement any fixes yet.
 
 Your job is to:
-1. Search this codebase to find the root cause of this issue
-2. Identify exactly which files, components, or configuration are responsible
-3. Explain what is causing the problem
-4. Describe what a fix would look like — but do not write the code
+1. Search this codebase to find the root cause of this issue.
+2. Identify exactly which files, components, or configurations are responsible.
+3. Explain what is causing the problem and why it is affecting performance.
+4. Describe what a fix would look like, but do not write the code.
 
 ## Investigation steps
 ${steps}
 
 ## What to report back
 
-Structure your response as:
-- **Root cause found:** [yes/no/partial]
-- **Location:** [file paths and line numbers if found]
-- **What's happening:** [specific explanation of why this is slow]
-- **What would fix it:** [description of the change needed, no code]
-- **Confidence:** [high/medium/low] — how certain are you this is the actual cause
+Provide a conversational, analytical summary of your findings. Rather than just filling out a strict form, walk me through what you discovered:
+- Did you find the root cause?
+- Where is it located?
+- What exactly is happening?
+- How should we fix it?
+- How confident are you in this assessment?
 
-Do not guess. If you cannot find the root cause, say so and explain what additional information would help.`;
-}
+If you cannot find the root cause, please explain what you checked and what additional information or commands would help.`;
+};
 
-function sleep(ms: number): Promise<void> {
+const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
+};
 
-export async function generateSummary(
+export const generateSummary = async(
   input: AiSummaryInput,
   log: Logger,
-): Promise<AiSummaryResult> {
+): Promise<AiSummaryResult> => {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
   // ── Rule engine ───────────────────────────────────────────────────────────
@@ -788,7 +870,7 @@ export async function generateSummary(
   };
 
   // ── Summary prompt ────────────────────────────────────────────────────────
-  const summaryPrompt = buildSummaryPrompt(input, ruleOutput);
+  const prompts = buildSummaryPrompt(input, ruleOutput);
   let summaryText = "";
 
   for (let attempt = 0; attempt <= 1; attempt++) {
@@ -803,9 +885,16 @@ export async function generateSummary(
 
       const completion = await groq.chat.completions.create({
         model: GROQ_MODEL,
-        temperature: 0,
-        messages: [{ role: "user", content: summaryPrompt }],
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: prompts.system },
+          { role: "user", content: prompts.user },
+        ],
       });
+
+      // console.log("Prompt tokens:", completion.usage?.prompt_tokens);
+      // console.log("Completion tokens:", completion.usage?.completion_tokens);
+      // console.log("Total tokens:", completion.usage?.total_tokens);
 
       const content = completion.choices[0]?.message?.content;
       if (!content) throw new Error("Groq returned empty content");

@@ -1,20 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma, Project } from '@prisma/client';
 import { validateProjectSubmission } from '@/lib/validation/project';
 import { ProjectResponse, Environment } from '@/types';
-
-interface PrismaProject {
-  id: string;
-  title: string;
-  description: string | null;
-  owner: string;
-  priority: string;
-  environment: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  urls: PrismaProjectUrl[];
-}
 
 interface PrismaProjectUrl {
   id: string;
@@ -25,14 +13,14 @@ interface PrismaProjectUrl {
   createdAt: Date;
 }
 
-function mapProjectToResponse(project: PrismaProject): ProjectResponse {
-  return {
+const mapProjectToResponse = (project: Project & { urls: PrismaProjectUrl[] }): ProjectResponse => ({
     id: project.id,
     title: project.title,
     description: project.description,
     owner: project.owner,
     priority: project.priority,
     environment: project.environment as Environment,
+    reportEmail: (project as typeof project & { reportEmail: string | null }).reportEmail,
     isActive: project.isActive,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
@@ -43,13 +31,12 @@ function mapProjectToResponse(project: PrismaProject): ProjectResponse {
       priority: u.priority,
       createdAt: u.createdAt.toISOString(),
     })),
-  };
-}
+});
 
-export async function GET(
+export const GET = async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   try {
     const project = await prisma.project.findUnique({
@@ -66,12 +53,12 @@ export async function GET(
     console.error(`GET /api/projects/${id} error:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};
 
-export async function PUT(
+export const PUT = async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   try {
     const body = await request.json();
@@ -92,7 +79,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const updatedProject = await prisma.$transaction(async (tx: any) => {
+    const updatedProject = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.project.update({
         where: { id },
         data: {
@@ -101,6 +88,7 @@ export async function PUT(
           owner: body.owner,
           priority: body.priority || 'medium',
           environment: body.environment,
+          reportEmail: body.reportEmail || null,
         },
       });
 
@@ -134,12 +122,12 @@ export async function PUT(
     console.error(`PUT /api/projects/${id} error:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};
 
-export async function DELETE(
+export const DELETE = async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   try {
     const existingProject = await prisma.project.findUnique({
@@ -159,4 +147,4 @@ export async function DELETE(
     console.error(`DELETE /api/projects/${id} error:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};

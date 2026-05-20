@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Opportunity, AgentPrompt } from '@/types';
+import { extractAdvancedDiagnostics } from '@/lib/audit/metrics-extractor';
+import { childLogger } from '@/lib/logger';
 
-/**
- * GET /api/audits/:id
- * Returns full detail for a single audit run including opportunities JSON.
- */
-export async function GET(
+export const GET = async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   try {
     const run = await prisma.auditRun.findUnique({
@@ -28,9 +26,42 @@ export async function GET(
       ? (run.opportunitiesJson as unknown as Opportunity[])
       : [];
 
-    const agentPrompts: AgentPrompt[] = Array.isArray((run as any).agentPromptsJson)
-      ? ((run as any).agentPromptsJson as AgentPrompt[])
+    const agentPrompts: AgentPrompt[] = Array.isArray(run.agentPromptsJson)
+      ? (run.agentPromptsJson as unknown as AgentPrompt[])
       : [];
+
+    let siblingRunId: string | null = null;
+    if (run.projectUrlId) {
+      const oppositeDevice = run.device === 'mobile' ? 'desktop' : 'mobile';
+      const sibling = await prisma.auditRun.findFirst({
+        where: {
+          projectUrlId: run.projectUrlId,
+          device: oppositeDevice,
+          status: 'success',
+          createdAt: {
+            gte: new Date(run.createdAt.getTime() - 10 * 60 * 1000),
+            lte: new Date(run.createdAt.getTime() + 10 * 60 * 1000),
+          },
+        },
+        select: { id: true },
+      });
+      if (sibling) {
+        siblingRunId = sibling.id;
+      } else {
+        const latestOpposite = await prisma.auditRun.findFirst({
+          where: {
+            projectUrlId: run.projectUrlId,
+            device: oppositeDevice,
+            status: 'success',
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        });
+        if (latestOpposite) {
+          siblingRunId = latestOpposite.id;
+        }
+      }
+    }
 
     return NextResponse.json({
       id: run.id,
@@ -51,14 +82,18 @@ export async function GET(
         inpOrTbt: run.inpOrTbt,
         fcp: run.fcp,
         speedIndex: run.speedIndex,
+        ttfb: run.ttfb,
       },
       opportunities,
       agentPrompts,
       aiSummary: run.aiSummary,
+      device: run.device,
+      siblingRunId,
+      advancedDiagnostics: run.rawJson ? extractAdvancedDiagnostics(run.rawJson, childLogger({ stage: 'api-audit-detail' })) : null,
       createdAt: run.createdAt.toISOString(),
     });
   } catch (error) {
     console.error(`GET /api/audits/${id} error:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};

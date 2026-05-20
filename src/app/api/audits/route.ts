@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-/**
- * GET /api/audits
- *
- * Returns audit run history, optionally filtered by projectId.
- * Query params:
- *   - projectId: filter to a specific project
- *   - limit: max results (default 50)
- *   - page: pagination (default 1)
- */
-export async function GET(request: NextRequest) {
+export const GET = async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId') ?? undefined;
@@ -35,7 +26,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     return NextResponse.json({
-      data: auditRuns.map((run: any) => ({
+      data: auditRuns.map(run => ({
         id: run.id,
         status: run.status,
         url: run.projectUrl.url,
@@ -53,6 +44,7 @@ export async function GET(request: NextRequest) {
         fcp: run.fcp,
         speedIndex: run.speedIndex,
         aiSummary: run.aiSummary,
+        device: run.device,
         createdAt: run.createdAt.toISOString(),
       })),
       pagination: {
@@ -66,4 +58,4 @@ export async function GET(request: NextRequest) {
     console.error('GET /api/audits error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+};

@@ -177,6 +177,59 @@ describe('validateProjectFields', () => {
       expect(result.errors).toContain("environment must be 'Production' or 'Staging'");
     });
   });
+
+  describe('reportEmail validation', () => {
+    it('passes when reportEmail is missing or undefined', () => {
+      const result = validateProjectFields({
+        title: 'My Project',
+        owner: 'Alice',
+        environment: 'Production',
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('passes when reportEmail is a single valid email', () => {
+      const result = validateProjectFields({
+        title: 'My Project',
+        owner: 'Alice',
+        environment: 'Production',
+        reportEmail: 'test@example.com',
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('passes when reportEmail contains multiple comma-separated valid emails', () => {
+      const result = validateProjectFields({
+        title: 'My Project',
+        owner: 'Alice',
+        environment: 'Production',
+        reportEmail: 'test@example.com, another@test.com, third.email@domain.co.uk',
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('fails when reportEmail is invalid', () => {
+      const result = validateProjectFields({
+        title: 'My Project',
+        owner: 'Alice',
+        environment: 'Production',
+        reportEmail: 'not-an-email',
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('reportEmail contains an invalid email address: not-an-email');
+    });
+
+    it('fails if at least one email in a comma-separated list is invalid', () => {
+      const result = validateProjectFields({
+        title: 'My Project',
+        owner: 'Alice',
+        environment: 'Production',
+        reportEmail: 'test@example.com, invalid-email, ok@test.com',
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('reportEmail contains an invalid email address: invalid-email');
+    });
+  });
 });
 
 // ─── Combined Validation ──────────────────────────────────────────────────────

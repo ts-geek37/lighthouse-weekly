@@ -18,9 +18,11 @@ import { generateSummary } from '../src/lib/audit/ai-summarizer';
 import { generateReport } from '../src/lib/report/generator';
 import { writeJsonReport } from '../src/lib/report/json-writer';
 import { writeMarkdownReport } from '../src/lib/report/markdown-writer';
+import { sendReportEmail } from '../src/lib/mail';
+import { WeeklyIntelligenceService } from '../src/lib/comparison/intelligenceService';
 import { PipelineContext } from '../src/types';
 
-async function main(): Promise<void> {
+const main = async(): Promise<void> => {
   // ── 1. Validate configuration ─────────────────────────────────────────────
   let config;
   try {
@@ -68,91 +70,98 @@ async function main(): Promise<void> {
     for (const projectUrl of project.urls) {
       const urlLog = childLogger({ stage: 'orchestrator', projectId: project.id, url: projectUrl.url });
 
-      try {
-        urlLog.info('Starting audit');
+      for (const device of ['mobile', 'desktop'] as const) {
+        try {
+          urlLog.info({ device }, `Starting ${device} audit`);
 
-        // ── Lighthouse audit ────────────────────────────────────────────────
-        const auditResult = await runAudit({ url: projectUrl.url }, urlLog);
+          // ── Lighthouse audit ────────────────────────────────────────────────
+          const auditResult = await runAudit({ url: projectUrl.url, device }, urlLog);
 
-        if (!auditResult.success) {
-          // Record failed audit run
-          const failedRun = await prisma.auditRun.create({
+          if (!auditResult.success) {
+            // Record failed audit run
+            const failedRun = await prisma.auditRun.create({
+              data: {
+                projectId: project.id,
+                projectUrlId: projectUrl.id,
+                status: 'failed',
+                device,
+              },
+            });
+            context.auditRunIds.push(failedRun.id);
+            context.failedUrls.push({
+              projectId: project.id,
+              url: projectUrl.url,
+              error: `${device} audit failed: ${auditResult.error}`,
+            });
+            urlLog.error(
+              { stage: 'orchestrator', projectId: project.id, url: projectUrl.url, device, err: auditResult.error },
+              'Audit failed — recorded as failed run'
+            );
+            continue;
+          }
+
+          // ── Metrics extraction ──────────────────────────────────────────────
+          const metrics = extractMetrics(auditResult.lhr, urlLog);
+
+          // ── Persist audit run ───────────────────────────────────────────────
+          const auditRun = await prisma.auditRun.create({
             data: {
               projectId: project.id,
               projectUrlId: projectUrl.id,
-              status: 'failed',
+              status: 'success',
+              device,
+              performanceScore: metrics.performanceScore,
+              accessibilityScore: metrics.accessibilityScore,
+              seoScore: metrics.seoScore,
+              bestPracticesScore: metrics.bestPracticesScore,
+              lcp: metrics.lcp,
+              cls: metrics.cls,
+              inpOrTbt: metrics.inpOrTbt,
+              fcp: metrics.fcp,
+              speedIndex: metrics.speedIndex,
+              ttfb: metrics.ttfb,
+              opportunitiesJson: metrics.opportunities as any,
+              rawJson: auditResult.lhr as any,
+              htmlReport: auditResult.htmlReport,
             },
           });
-          context.auditRunIds.push(failedRun.id);
+
+          // ── AI summary ──────────────────────────────────────────────────────
+          const summaryResult = await generateSummary(
+            { url: projectUrl.url, pageType: projectUrl.pageType, metrics },
+            urlLog
+          );
+
+          const aiSummary = summaryResult.success
+            ? summaryResult.output.summary
+            : summaryResult.fallback;
+
+          const agentPromptsJson = summaryResult.success
+            ? summaryResult.output.agentPrompts
+            : null;
+
+          await prisma.auditRun.update({
+            where: { id: auditRun.id },
+            data: {
+              aiSummary,
+              agentPromptsJson: agentPromptsJson as any,
+            } as any,
+          });
+
+          context.auditRunIds.push(auditRun.id);
+          urlLog.info({ auditRunId: auditRun.id, device }, 'Audit completed successfully');
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          urlLog.error(
+            { stage: 'orchestrator', projectId: project.id, url: projectUrl.url, device, err: errorMessage },
+            'Unexpected error processing URL'
+          );
           context.failedUrls.push({
             projectId: project.id,
             url: projectUrl.url,
-            error: auditResult.error,
+            error: `${device} audit error: ${errorMessage}`,
           });
-          urlLog.error(
-            { stage: 'orchestrator', projectId: project.id, url: projectUrl.url, err: auditResult.error },
-            'Audit failed — recorded as failed run'
-          );
-          continue;
         }
-
-        // ── Metrics extraction ──────────────────────────────────────────────
-        const metrics = extractMetrics(auditResult.lhr, urlLog);
-
-        // ── Persist audit run ───────────────────────────────────────────────
-        const auditRun = await prisma.auditRun.create({
-          data: {
-            projectId: project.id,
-            projectUrlId: projectUrl.id,
-            status: 'success',
-            performanceScore: metrics.performanceScore,
-            accessibilityScore: metrics.accessibilityScore,
-            seoScore: metrics.seoScore,
-            bestPracticesScore: metrics.bestPracticesScore,
-            lcp: metrics.lcp,
-            cls: metrics.cls,
-            inpOrTbt: metrics.inpOrTbt,
-            fcp: metrics.fcp,
-            speedIndex: metrics.speedIndex,
-            opportunitiesJson: metrics.opportunities as any,
-          },
-        });
-
-        // ── AI summary ──────────────────────────────────────────────────────
-        const summaryResult = await generateSummary(
-          { url: projectUrl.url, pageType: projectUrl.pageType, metrics },
-          urlLog
-        );
-
-        const aiSummary = summaryResult.success
-          ? summaryResult.output.summary
-          : summaryResult.fallback;
-
-        const agentPromptsJson = summaryResult.success
-          ? summaryResult.output.agentPrompts
-          : null;
-
-        await prisma.auditRun.update({
-          where: { id: auditRun.id },
-          data: {
-            aiSummary,
-            agentPromptsJson: agentPromptsJson as any,
-          } as any,
-        });
-
-        context.auditRunIds.push(auditRun.id);
-        urlLog.info({ auditRunId: auditRun.id }, 'Audit completed successfully');
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        urlLog.error(
-          { stage: 'orchestrator', projectId: project.id, url: projectUrl.url, err: errorMessage },
-          'Unexpected error processing URL'
-        );
-        context.failedUrls.push({
-          projectId: project.id,
-          url: projectUrl.url,
-          error: errorMessage,
-        });
       }
     }
   }
@@ -172,6 +181,56 @@ async function main(): Promise<void> {
 
     if (config.markdownOutputEnabled) {
       await writeMarkdownReport(report, config.reportOutputDir, log);
+    }
+
+    // Send individual project reports via email if configured
+    for (const projectReport of report.projects) {
+      if (projectReport.reportEmail) {
+        log.info({ projectId: projectReport.projectId }, 'Generating performance intelligence for email report');
+        let mobileComp = null;
+        let desktopComp = null;
+        try {
+          // 1. Generate/Fetch both mobile and desktop comparison reports
+          mobileComp = await WeeklyIntelligenceService.getComparisonReport(projectReport.projectId, 'mobile');
+          desktopComp = await WeeklyIntelligenceService.getComparisonReport(projectReport.projectId, 'desktop');
+
+          // 2. Pre-generate and cache the AI regression insights for each URL that has enough history
+          for (const compReport of [mobileComp, desktopComp]) {
+            for (const urlReport of compReport.urls) {
+              if (urlReport.hasEnoughData) {
+                const latestRun = urlReport.historicalRuns[urlReport.historicalRuns.length - 1];
+                const previousRun = urlReport.historicalRuns[urlReport.historicalRuns.length - 2];
+                if (latestRun && previousRun) {
+                  log.info(
+                    { projectUrlId: urlReport.projectUrlId, device: compReport === mobileComp ? 'mobile' : 'desktop' },
+                    'Pre-generating and caching AI performance insights'
+                  );
+                  // getOrGenerateAiInsight automatically computes and caches it in DB
+                  const aiInsight = await WeeklyIntelligenceService.getOrGenerateAiInsight(
+                    urlReport.projectUrlId,
+                    latestRun.id,
+                    previousRun.id
+                  );
+                  urlReport.aiInsight = aiInsight;
+                }
+              }
+            }
+          }
+        } catch (err) {
+          log.error(
+            { err, projectId: projectReport.projectId },
+            'Failed to precompute weekly performance intelligence for email'
+          );
+        }
+
+        await sendReportEmail(
+          projectReport.reportEmail,
+          projectReport,
+          log,
+          mobileComp || undefined,
+          desktopComp || undefined
+        );
+      }
     }
   } catch (err) {
     log.error({ err }, 'Failed to write report');

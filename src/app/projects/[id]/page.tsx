@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ProjectResponse } from '@/types';
 import { ScoreBadge } from '@/components/ScoreBadge';
@@ -15,9 +15,29 @@ interface RecentAudit {
   seoScore: number | null;
   bestPracticesScore: number | null;
   createdAt: string;
+  device: 'mobile' | 'desktop';
 }
 
-export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+interface AuditListResponse {
+  data?: RecentAudit[];
+}
+
+const metaBadgeClass = 'inline-block rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700';
+
+const environmentClass = (environment: string): string =>
+  environment === 'Production'
+    ? 'bg-emerald-100 text-emerald-800'
+    : 'bg-amber-100 text-amber-800';
+
+const statusClass = (isActive: boolean): string =>
+  isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800';
+
+const deviceBadgeClass = (device: RecentAudit['device']): string =>
+  device === 'desktop'
+    ? 'border-blue-200 bg-blue-50 text-blue-800'
+    : 'border-rose-200 bg-rose-50 text-rose-800';
+
+const ProjectDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [recentAudits, setRecentAudits] = useState<RecentAudit[]>([]);
@@ -25,230 +45,237 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/projects/${id}`).then(r => {
-        if (r.status === 404) { setNotFound(true); return null; }
-        return r.json();
-      }),
-      fetch(`/api/audits?projectId=${id}&limit=10`).then(r => r.json()),
-    ])
-      .then(([projectData, auditsData]) => {
-        if (projectData) setProject(projectData);
+    const loadProject = async () => {
+      try {
+        const [projectResponse, auditsResponse] = await Promise.all([
+          fetch(`/api/projects/${id}`),
+          fetch(`/api/audits?projectId=${id}&limit=10`),
+        ]);
+
+        if (projectResponse.status === 404) {
+          setNotFound(true);
+          return;
+        }
+
+        if (!projectResponse.ok) throw new Error('Failed to load project');
+
+        const projectData = await projectResponse.json() as ProjectResponse;
+        const auditsData = auditsResponse.ok ? await auditsResponse.json() as AuditListResponse : null;
+
+        setProject(projectData);
         setRecentAudits(auditsData?.data ?? []);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+
+    loadProject().catch(() => setLoading(false));
   }, [id]);
 
-  async function toggleStatus() {
+  const toggleStatus = async () => {
     if (!project) return;
-    const res = await fetch(`/api/projects/${id}/status`, {
+
+    const response = await fetch(`/api/projects/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive: !project.isActive }),
     });
-    if (res.ok) {
-      const updated = await res.json();
+
+    if (response.ok) {
+      const updated = await response.json() as ProjectResponse;
       setProject(updated);
     }
+  };
+
+  const auditsByUrl = useMemo(() => {
+    if (!project) return [];
+
+    return project.urls.map(urlEntry => ({
+      urlEntry,
+      audits: recentAudits.filter(audit => audit.url === urlEntry.url).slice(0, 3),
+    }));
+  }, [project, recentAudits]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl p-8">
+        <p className="text-gray-500">Loading project...</p>
+      </div>
+    );
   }
 
-  if (loading) return <div style={styles.container}><p>Loading project…</p></div>;
-  if (notFound || !project) return (
-    <div style={styles.container}>
-      <p>Project not found.</p>
-      <Link href="/projects" style={styles.back}>← Back to projects</Link>
-    </div>
-  );
-
-  // Group recent audits by URL
-  const auditsByUrl = project.urls.map(urlEntry => ({
-    urlEntry,
-    audits: recentAudits.filter(a => a.url === urlEntry.url).slice(0, 3),
-  }));
+  if (notFound || !project) {
+    return (
+      <div className="mx-auto max-w-6xl p-8">
+        <p>Project not found.</p>
+        <Link href="/projects" className="text-sm text-gray-500 no-underline hover:text-gray-800">
+          ← Back to projects
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div style={styles.container}>
-      {/* Breadcrumb */}
-      <div style={styles.breadcrumb}>
-        <Link href="/projects" style={styles.back}>Projects</Link>
-        <span style={styles.sep}>/</span>
-        <span style={{ color: '#374151' }}>{project.title}</span>
+    <div className="mx-auto max-w-6xl p-6 sm:p-8">
+      <div className="mb-6 flex items-center gap-2 text-sm">
+        <Link href="/projects" className="text-gray-500 no-underline hover:text-gray-800">Projects</Link>
+        <span className="text-gray-300">/</span>
+        <span className="text-gray-700">{project.title}</span>
       </div>
 
-      {/* Header */}
-      <div style={styles.pageHeader}>
+      <header className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 style={styles.title}>{project.title}</h1>
+          <h1 className="mb-1 text-3xl font-bold text-gray-900">{project.title}</h1>
           {project.description && (
-            <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.9rem' }}>{project.description}</p>
+            <p className="mt-1 text-sm text-gray-500">{project.description}</p>
           )}
-          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={styles.metaBadge}>{project.owner}</span>
-            <span style={{
-              ...styles.metaBadge,
-              background: project.environment === 'Production' ? '#d1fae5' : '#fef3c7',
-              color: project.environment === 'Production' ? '#065f46' : '#92400e',
-            }}>
-              {project.environment}
-            </span>
-            <span style={{
-              ...styles.metaBadge,
-              background: project.isActive ? '#d1fae5' : '#fee2e2',
-              color: project.isActive ? '#065f46' : '#991b1b',
-            }}>
-              {project.isActive ? 'Active' : 'Inactive'}
-            </span>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span className={metaBadgeClass}>{project.owner}</span>
+            <span className={`${metaBadgeClass} ${environmentClass(project.environment)}`}>{project.environment}</span>
+            <span className={`${metaBadgeClass} ${statusClass(project.isActive)}`}>{project.isActive ? 'Active' : 'Inactive'}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <Link href="/audits/new" style={styles.runBtn}>▶ Run Audit</Link>
-          <Link href={`/projects/${id}/edit`} style={styles.editBtn}>Edit</Link>
-          <button onClick={toggleStatus} style={styles.toggleBtn}>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/audits/new" className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white no-underline transition hover:bg-blue-700">
+            ▶ Run Audit
+          </Link>
+          <Link href={`/projects/${id}/edit`} className="rounded-md bg-gray-100 px-4 py-2 text-sm text-gray-700 no-underline transition hover:bg-gray-200">
+            Edit
+          </Link>
+          <button type="button" onClick={toggleStatus} className="rounded-md bg-gray-100 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-200">
             {project.isActive ? 'Disable' : 'Enable'}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Monitored URLs */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Monitored URLs</h2>
+      <section className="mb-10">
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">Monitored URLs</h2>
         {project.urls.length === 0 ? (
-          <p style={{ color: '#6b7280' }}>No URLs configured. <Link href={`/projects/${project.id}/edit`}>Add some →</Link></p>
+          <p className="text-sm text-gray-500">
+            No URLs configured. <Link href={`/projects/${project.id}/edit`} className="text-blue-600">Add some →</Link>
+          </p>
         ) : (
-          <div style={styles.urlsGrid}>
+          <div className="grid gap-4 md:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
             {auditsByUrl.map(({ urlEntry, audits }) => {
               const latest = audits[0];
+
               return (
-                <div key={urlEntry.id} style={styles.urlCard}>
-                  <div style={styles.urlCardHeader}>
-                    <div>
-                      <span style={styles.pageTypeBadge}>{urlEntry.pageType}</span>
-                      <a href={urlEntry.url} target="_blank" rel="noopener noreferrer" style={styles.urlLink}>
+                <article key={urlEntry.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="mr-2 inline-block rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-500">{urlEntry.pageType}</span>
+                      <a href={urlEntry.url} target="_blank" rel="noopener noreferrer" className="break-all text-sm text-blue-600 no-underline hover:underline">
                         {urlEntry.url}
                       </a>
                     </div>
-                    <Link
-                      href={`/audits/new?projectUrlId=${urlEntry.id}`}
-                      style={styles.runSmallBtn}
-                    >
+                    <Link href={`/audits/new?projectUrlId=${urlEntry.id}`} className="shrink-0 rounded bg-blue-50 px-2.5 py-1 text-xs text-blue-600 no-underline transition hover:bg-blue-100">
                       ▶ Run
                     </Link>
                   </div>
 
                   {latest ? (
-                    <div style={styles.latestScores}>
-                      <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
-                        Latest: {new Date(latest.createdAt).toLocaleDateString()}
+                    <div className="mt-2">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div className="text-xs text-gray-400">
+                          Latest: {new Date(latest.createdAt).toLocaleDateString()}
+                        </div>
+                        <span className={`inline-block rounded border px-1.5 py-0.5 text-[0.65rem] font-medium ${deviceBadgeClass(latest.device)}`}>
+                          {latest.device === 'desktop' ? '💻 Desktop' : '📱 Mobile'}
+                        </span>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <div className="flex flex-wrap items-center gap-2">
                         {[
                           { label: 'Perf', score: latest.performanceScore },
                           { label: 'A11y', score: latest.accessibilityScore },
                           { label: 'SEO', score: latest.seoScore },
                           { label: 'BP', score: latest.bestPracticesScore },
                         ].map(({ label, score }) => (
-                          <div key={label} style={{ textAlign: 'center' as const }}>
+                          <div key={label} className="text-center">
                             <ScoreBadge score={score} size="sm" />
-                            <div style={{ fontSize: '0.65rem', color: '#9ca3af', marginTop: '0.15rem' }}>{label}</div>
+                            <div className="mt-0.5 text-[0.65rem] text-gray-400">{label}</div>
                           </div>
                         ))}
-                        <Link href={`/audits/${latest.id}`} style={styles.viewLink}>View →</Link>
+                        <Link href={`/audits/${latest.id}`} className="self-center text-xs text-blue-600 no-underline hover:underline">
+                          View →
+                        </Link>
                       </div>
                     </div>
                   ) : (
-                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#9ca3af' }}>No audits yet</p>
+                    <p className="mt-2 text-sm text-gray-400">No audits yet</p>
                   )}
-                </div>
+                </article>
               );
             })}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Recent audit history */}
       {recentAudits.length > 0 && (
-        <div style={styles.section}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <h2 style={{ ...styles.sectionTitle, margin: 0 }}>Recent Audits</h2>
-            <Link href={`/audits?projectId=${project.id}`} style={{ fontSize: '0.875rem', color: '#2563eb', textDecoration: 'none' }}>
+        <section className="mb-10">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="m-0 text-lg font-semibold text-gray-900">Recent Audits</h2>
+            <Link href={`/audits?projectId=${project.id}`} className="text-sm text-blue-600 no-underline hover:underline">
               View all →
             </Link>
           </div>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>URL</th>
-                <th style={styles.th}>Perf</th>
-                <th style={styles.th}>A11y</th>
-                <th style={styles.th}>SEO</th>
-                <th style={styles.th}>BP</th>
-                <th style={styles.th}>Date</th>
-                <th style={styles.th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentAudits.map(run => (
-                <tr key={run.id} style={styles.tr}>
-                  <td style={styles.td}>
-                    <span style={styles.pageTypeBadge}>{run.pageType}</span>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                      {run.url.length > 45 ? run.url.slice(0, 45) + '…' : run.url}
-                    </div>
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'center' as const }}>
-                    {run.status === 'failed'
-                      ? <span style={{ fontSize: '0.75rem', color: '#991b1b' }}>Failed</span>
-                      : <ScoreBadge score={run.performanceScore} size="sm" />}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'center' as const }}>
-                    {run.status !== 'failed' && <ScoreBadge score={run.accessibilityScore} size="sm" />}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'center' as const }}>
-                    {run.status !== 'failed' && <ScoreBadge score={run.seoScore} size="sm" />}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'center' as const }}>
-                    {run.status !== 'failed' && <ScoreBadge score={run.bestPracticesScore} size="sm" />}
-                  </td>
-                  <td style={{ ...styles.td, fontSize: '0.8rem', color: '#6b7280' }}>
-                    {new Date(run.createdAt).toLocaleDateString()}
-                  </td>
-                  <td style={styles.td}>
-                    <Link href={`/audits/${run.id}`} style={styles.viewLink}>View →</Link>
-                  </td>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <table className="w-full min-w-[760px] border-collapse">
+              <thead>
+                <tr className="border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <th className="px-3 py-2.5">URL</th>
+                  <th className="px-3 py-2.5 text-center">Perf</th>
+                  <th className="px-3 py-2.5 text-center">A11y</th>
+                  <th className="px-3 py-2.5 text-center">SEO</th>
+                  <th className="px-3 py-2.5 text-center">BP</th>
+                  <th className="px-3 py-2.5">Date</th>
+                  <th className="px-3 py-2.5"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {recentAudits.map(run => (
+                  <tr key={run.id} className="border-b border-gray-100 last:border-b-0">
+                    <td className="px-3 py-2.5 align-middle">
+                      <div className="mb-1 flex items-center gap-1.5">
+                        <span className="inline-block rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-500">{run.pageType}</span>
+                        <span className={`inline-block rounded border px-1.5 py-0.5 text-xs ${deviceBadgeClass(run.device)}`}>
+                          {run.device === 'desktop' ? '💻 Desktop' : '📱 Mobile'}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {run.url.length > 45 ? `${run.url.slice(0, 45)}...` : run.url}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-center align-middle">
+                      {run.status === 'failed'
+                        ? <span className="text-xs text-red-800">Failed</span>
+                        : <ScoreBadge score={run.performanceScore} size="sm" />}
+                    </td>
+                    <td className="px-3 py-2.5 text-center align-middle">
+                      {run.status !== 'failed' && <ScoreBadge score={run.accessibilityScore} size="sm" />}
+                    </td>
+                    <td className="px-3 py-2.5 text-center align-middle">
+                      {run.status !== 'failed' && <ScoreBadge score={run.seoScore} size="sm" />}
+                    </td>
+                    <td className="px-3 py-2.5 text-center align-middle">
+                      {run.status !== 'failed' && <ScoreBadge score={run.bestPracticesScore} size="sm" />}
+                    </td>
+                    <td className="px-3 py-2.5 align-middle text-sm text-gray-500">
+                      {new Date(run.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-3 py-2.5 align-middle">
+                      <Link href={`/audits/${run.id}`} className="text-xs text-blue-600 no-underline hover:underline">
+                        View →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </div>
   );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: '1100px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
-  breadcrumb: { display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem', fontSize: '0.875rem' },
-  back: { color: '#6b7280', textDecoration: 'none' },
-  sep: { color: '#d1d5db' },
-  pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', gap: '1rem' },
-  title: { margin: '0 0 0.25rem', fontSize: '1.75rem' },
-  metaBadge: { display: 'inline-block', background: '#f3f4f6', color: '#374151', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: 500 },
-  runBtn: { background: '#2563eb', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 },
-  editBtn: { background: '#f3f4f6', color: '#374151', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.875rem' },
-  toggleBtn: { background: '#f3f4f6', color: '#374151', padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontSize: '0.875rem', cursor: 'pointer' },
-  section: { marginBottom: '2.5rem' },
-  sectionTitle: { margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600, color: '#111827' },
-  urlsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' },
-  urlCard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' },
-  urlCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem', gap: '0.5rem' },
-  pageTypeBadge: { display: 'inline-block', background: '#e5e7eb', color: '#6b7280', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem', marginRight: '0.4rem' },
-  urlLink: { fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none', wordBreak: 'break-all' as const },
-  runSmallBtn: { background: '#eff6ff', color: '#2563eb', padding: '0.25rem 0.6rem', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem', whiteSpace: 'nowrap' as const, flexShrink: 0 },
-  latestScores: { marginTop: '0.5rem' },
-  viewLink: { color: '#2563eb', textDecoration: 'none', fontSize: '0.8rem', alignSelf: 'center' as const },
-  table: { width: '100%', borderCollapse: 'collapse' as const, background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' },
-  th: { textAlign: 'left' as const, padding: '0.6rem 0.75rem', borderBottom: '2px solid #e5e7eb', fontWeight: 600, fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase' as const, letterSpacing: '0.05em', background: '#f9fafb' },
-  tr: { borderBottom: '1px solid #f3f4f6' },
-  td: { padding: '0.6rem 0.75rem', verticalAlign: 'middle' as const },
 };
+
+export default ProjectDetailPage;

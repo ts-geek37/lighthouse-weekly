@@ -8,11 +8,11 @@ import { WeeklyReport, UrlReport } from '@/types';
  * Only invoked when MARKDOWN_OUTPUT_ENABLED=true.
  * File is named report-YYYY-MM-DD.md.
  */
-export async function writeMarkdownReport(
+export const writeMarkdownReport = async(
   report: WeeklyReport,
   outputDir: string,
   log: Logger
-): Promise<void> {
+): Promise<void> => {
   const date = report.generatedAt.slice(0, 10); // YYYY-MM-DD
   const filename = `report-${date}.md`;
   const filePath = path.join(outputDir, filename);
@@ -30,7 +30,7 @@ export async function writeMarkdownReport(
   }
 }
 
-function buildMarkdown(report: WeeklyReport): string {
+const buildMarkdown = (report: WeeklyReport): string => {
   const lines: string[] = [];
 
   lines.push(`# Weekly Lighthouse Report`);
@@ -69,8 +69,8 @@ function buildMarkdown(report: WeeklyReport): string {
       lines.push(`|---|---|`);
       lines.push(`| Performance | ${formatScore(urlReport.performanceScore)} |`);
       lines.push(`| Accessibility | ${formatScore(urlReport.accessibilityScore)} |`);
-      lines.push(`| SEO | ${formatScore(urlReport.seoScore)} |`);
       lines.push(`| Best Practices | ${formatScore(urlReport.bestPracticesScore)} |`);
+      lines.push(`| SEO | ${formatScore(urlReport.seoScore)} |`);
       lines.push('');
 
       lines.push('#### Core Web Vitals');
@@ -110,12 +110,12 @@ function buildMarkdown(report: WeeklyReport): string {
   }
 
   return lines.join('\n');
-}
+};
 
-function formatScore(score: number | null): string {
+const formatScore = (score: number | null): string => {
   return score !== null ? `${score}/100` : 'N/A';
-}
+};
 
-function formatMs(value: number | null): string {
+const formatMs = (value: number | null): string => {
   return value !== null ? `${value}ms` : 'N/A';
-}
+};

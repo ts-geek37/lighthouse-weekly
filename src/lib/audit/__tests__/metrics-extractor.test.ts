@@ -17,7 +17,7 @@ const mockLog = {
 } as any;
 
 /** Builds a complete mock LHR with all fields present */
-function buildFullLhr(overrides: Partial<{
+const buildFullLhr = (overrides: Partial<{
   performanceScore: number;
   accessibilityScore: number;
   seoScore: number;
@@ -28,7 +28,8 @@ function buildFullLhr(overrides: Partial<{
   tbt: number;
   fcp: number;
   speedIndex: number;
-}> = {}): LighthouseResult {
+  ttfb: number;
+}> = {}): LighthouseResult => {
   const o = {
     performanceScore: 0.81,
     accessibilityScore: 0.94,
@@ -40,6 +41,7 @@ function buildFullLhr(overrides: Partial<{
     tbt: 150,
     fcp: 1200,
     speedIndex: 3000,
+    ttfb: 150,
     ...overrides,
   };
 
@@ -61,6 +63,7 @@ function buildFullLhr(overrides: Partial<{
       'total-blocking-time': { id: 'total-blocking-time', title: 'TBT', description: '', score: 0.7, numericValue: o.tbt },
       'first-contentful-paint': { id: 'first-contentful-paint', title: 'FCP', description: '', score: 0.8, numericValue: o.fcp },
       'speed-index': { id: 'speed-index', title: 'Speed Index', description: '', score: 0.6, numericValue: o.speedIndex },
+      'server-response-time': { id: 'server-response-time', title: 'TTFB', description: '', score: 0.9, numericValue: o.ttfb },
       'unused-javascript': { id: 'unused-javascript', title: 'Remove unused JavaScript', description: 'Reduce unused JS', score: 0.3, details: { type: 'opportunity', overallSavingsMs: 500, overallSavingsBytes: 102400 } },
       'render-blocking-resources': { id: 'render-blocking-resources', title: 'Eliminate render-blocking resources', description: 'Remove render blocking', score: 0.4, details: { type: 'opportunity', overallSavingsMs: 300 } },
       'uses-optimized-images': { id: 'uses-optimized-images', title: 'Efficiently encode images', description: 'Optimize images', score: 0.5, details: { type: 'opportunity', overallSavingsBytes: 204800 } },

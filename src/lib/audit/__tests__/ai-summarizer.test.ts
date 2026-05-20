@@ -41,12 +41,12 @@ const mockLog = {
   child: jest.fn().mockReturnThis(),
 } as any;
 
-function createMockGroqInstance() {
+const createMockGroqInstance = () => {
   const instance = new (Groq as any)();
   return instance.chat.completions.create as jest.MockedFunction<any>;
 }
 
-function buildTestInput(): AiSummaryInput {
+const buildTestInput = (): AiSummaryInput => {
   const metrics: ExtractedMetrics = {
     performanceScore: 81,
     accessibilityScore: 94,
@@ -57,6 +57,7 @@ function buildTestInput(): AiSummaryInput {
     inpOrTbt: 200,
     fcp: 1200,
     speedIndex: 3000,
+    ttfb: 150,
     opportunities: [
       { id: 'unused-javascript', title: 'Remove unused JavaScript', description: 'Reduce JS', savingsMs: 500 },
       { id: 'render-blocking-resources', title: 'Eliminate render-blocking resources', description: 'Remove blocking', savingsMs: 300 },
@@ -66,7 +67,7 @@ function buildTestInput(): AiSummaryInput {
   return { url: 'https://example.com', pageType: 'homepage', metrics };
 }
 
-function buildValidSummary(): string {
+const buildValidSummary = (): string => {
   return `## Good
 - Strong SEO score of 100/100
 - Accessibility score of 94/100 is healthy
@@ -111,7 +112,7 @@ describe('generateSummary', () => {
       }
     });
 
-    it('calls Groq API with temperature: 0', async () => {
+    it('calls Groq API with temperature: 0.2', async () => {
       mockCreate.mockResolvedValue({
         choices: [{ message: { content: buildValidSummary() } }],
       });
@@ -119,7 +120,7 @@ describe('generateSummary', () => {
       await generateSummary(buildTestInput(), mockLog);
 
       expect(mockCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ temperature: 0 })
+        expect.objectContaining({ temperature: 0.2 })
       );
     });
 
@@ -330,7 +331,7 @@ describe('classifyMetric', () => {
 // ─── 10.2 + 10.3 detectSituations ────────────────────────────────────────────
 
 describe('detectSituations', () => {
-  function baseMetrics(): ExtractedMetrics {
+  const baseMetrics = (): ExtractedMetrics => {
     return {
       performanceScore: 90,
       accessibilityScore: 95,
@@ -341,6 +342,7 @@ describe('detectSituations', () => {
       inpOrTbt: 100,
       fcp: 800,
       speedIndex: 2000,
+      ttfb: 150,
       opportunities: [],
     };
   }
@@ -453,10 +455,10 @@ describe('detectSituations', () => {
 // ─── 10.4 resolveCausalRules ──────────────────────────────────────────────────
 
 describe('resolveCausalRules', () => {
-  function baseMetrics(): ExtractedMetrics {
+  const baseMetrics = (): ExtractedMetrics => {
     return {
       performanceScore: 90, accessibilityScore: 95, seoScore: 100, bestPracticesScore: 92,
-      lcp: 2000, cls: 0.05, inpOrTbt: 150, fcp: 1200, speedIndex: 2500, opportunities: [],
+      lcp: 2000, cls: 0.05, inpOrTbt: 150, fcp: 1200, speedIndex: 2500, ttfb: 150, opportunities: [],
     };
   }
 
@@ -506,7 +508,7 @@ describe('resolveCausalRules', () => {
 // ─── 10.5 buildSummaryPrompt ──────────────────────────────────────────────────
 
 describe('buildSummaryPrompt', () => {
-  function baseInput(): AiSummaryInput {
+  const baseInput = (): AiSummaryInput => {
     return {
       url: 'https://example.com',
       pageType: 'homepage',
@@ -520,6 +522,7 @@ describe('buildSummaryPrompt', () => {
         inpOrTbt: 150,
         fcp: 1200,
         speedIndex: 2500,
+        ttfb: 150,
         opportunities: [],
       },
     };
@@ -532,9 +535,9 @@ describe('buildSummaryPrompt', () => {
       resolvedCausalRules: [],
     };
     const prompt = buildSummaryPrompt(baseInput(), ruleOutput);
-    expect(prompt).toContain('SYSTEM CONCLUSIONS');
-    expect(prompt).toContain('SCORE_BELOW_FLOOR');
-    expect(prompt).toContain('[CRITICAL]');
+    expect(prompt.user).toContain('SYSTEM CONCLUSIONS');
+    expect(prompt.user).toContain('SCORE_BELOW_FLOOR');
+    expect(prompt.user).toContain('[CRITICAL]');
   });
 
   it('does NOT contain SYSTEM CONCLUSIONS block when situations are empty', () => {
@@ -544,7 +547,7 @@ describe('buildSummaryPrompt', () => {
       resolvedCausalRules: [],
     };
     const prompt = buildSummaryPrompt(baseInput(), ruleOutput);
-    expect(prompt).not.toContain('SYSTEM CONCLUSIONS');
+    expect(prompt.user).not.toContain('SYSTEM CONCLUSIONS');
   });
 
   it('contains METRIC CLASSIFICATIONS block', () => {
@@ -554,7 +557,7 @@ describe('buildSummaryPrompt', () => {
       resolvedCausalRules: [],
     };
     const prompt = buildSummaryPrompt(baseInput(), ruleOutput);
-    expect(prompt).toContain('METRIC CLASSIFICATIONS');
+    expect(prompt.user).toContain('METRIC CLASSIFICATIONS');
   });
 
   it('contains instruction not to contradict SYSTEM CONCLUSIONS', () => {
@@ -564,17 +567,17 @@ describe('buildSummaryPrompt', () => {
       resolvedCausalRules: [],
     };
     const prompt = buildSummaryPrompt(baseInput(), ruleOutput);
-    expect(prompt).toContain('pre-verified facts');
+    expect(prompt.user).toContain('pre-verified facts');
   });
 });
 
 // ─── 10.6 getInvestigationSteps ───────────────────────────────────────────────
 
 describe('getInvestigationSteps', () => {
-  function baseMetrics(): ExtractedMetrics {
+  const baseMetrics = (): ExtractedMetrics => {
     return {
       performanceScore: 90, accessibilityScore: 95, seoScore: 100, bestPracticesScore: 92,
-      lcp: 2000, cls: 0.05, inpOrTbt: 600, fcp: 1200, speedIndex: 2500, opportunities: [],
+      lcp: 2000, cls: 0.05, inpOrTbt: 600, fcp: 1200, speedIndex: 2500, ttfb: 150, opportunities: [],
     };
   }
 

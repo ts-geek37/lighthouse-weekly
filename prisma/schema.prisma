@@ -18,12 +18,14 @@ model Project {
   owner       String
   priority    String      @default("medium")
   environment Environment
+  reportEmail String?     @map("report_email")
   isActive    Boolean     @default(true) @map("is_active")
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
   urls        ProjectUrl[]
   auditRuns   AuditRun[]
+  weeklyIntelligenceSnapshots WeeklyIntelligenceSnapshot[]
 
   @@map("projects")
 }
@@ -38,6 +40,7 @@ model ProjectUrl {
 
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   auditRuns AuditRun[]
+  weeklyIntelligenceSnapshots WeeklyIntelligenceSnapshot[]
 
   @@map("project_urls")
 }
@@ -47,6 +50,7 @@ model AuditRun {
   projectId           String   @map("project_id")
   projectUrlId        String   @map("project_url_id")
   status              String   @default("success")
+  device              String   @default("mobile")
   performanceScore    Float?   @map("performance_score")
   accessibilityScore  Float?   @map("accessibility_score")
   seoScore            Float?   @map("seo_score")
@@ -56,13 +60,35 @@ model AuditRun {
   inpOrTbt            Float?   @map("inp_or_tbt")
   fcp                 Float?
   speedIndex          Float?   @map("speed_index")
+  ttfb                Float?   @map("ttfb")
   opportunitiesJson   Json?    @map("opportunities_json")
   aiSummary           String?  @map("ai_summary")
   agentPromptsJson    Json?    @map("agent_prompts_json")
+  htmlReport          String?  @map("html_report")
+  rawJson             Json?    @map("raw_json")
   createdAt           DateTime @default(now()) @map("created_at")
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectUrl ProjectUrl @relation(fields: [projectUrlId], references: [id], onDelete: Cascade)
 
   @@map("audit_runs")
+}
+
+model WeeklyIntelligenceSnapshot {
+  id               String   @id @default(cuid())
+  projectId        String   @map("project_id")
+  projectUrlId     String   @map("project_url_id")
+  latestRunId      String   @map("latest_run_id")
+  previousRunId    String   @map("previous_run_id")
+  metricsJson      Json     @map("metrics_json")
+  regressionsJson  Json     @map("regressions_json")
+  improvementsJson Json     @map("improvements_json")
+  aiInsight        String?  @map("ai_insight")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectUrl ProjectUrl @relation(fields: [projectUrlId], references: [id], onDelete: Cascade)
+
+  @@unique([projectUrlId, latestRunId, previousRunId])
+  @@map("weekly_intelligence_snapshots")
 }

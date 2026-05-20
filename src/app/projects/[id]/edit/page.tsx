@@ -1,7 +1,8 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { FormEvent, use, useEffect, useState } from 'react';
 import { ProjectResponse } from '@/types';
 
 interface UrlEntry {
@@ -10,11 +11,22 @@ interface UrlEntry {
   priority: string;
 }
 
-const PAGE_TYPES = ['homepage', 'login', 'signup', 'checkout', 'pricing', 'product', 'blog', 'other'];
-const PRIORITIES = ['high', 'medium', 'low'];
+interface ProjectUpdateResponse {
+  error?: string;
+  details?: string[];
+}
 
+const PAGE_TYPES = ['homepage', 'login', 'signup', 'checkout', 'pricing', 'product', 'blog', 'other'] as const;
+const PRIORITIES = ['high', 'medium', 'low'] as const;
 
-export default function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
+const fieldClass = 'flex flex-col gap-1';
+const labelClass = 'text-sm font-medium text-gray-700';
+const inputClass = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
+const selectClass = inputClass;
+
+const titleCase = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
+
+const EditProjectPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -27,54 +39,63 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
   const [owner, setOwner] = useState('');
   const [priority, setPriority] = useState('medium');
   const [environment, setEnvironment] = useState('Production');
+  const [reportEmail, setReportEmail] = useState('');
   const [urls, setUrls] = useState<UrlEntry[]>([]);
 
   useEffect(() => {
-    fetch(`/api/projects/${id}`)
-      .then((res) => {
-        if (res.status === 404) {
+    const loadProject = async () => {
+      try {
+        const response = await fetch(`/api/projects/${id}`);
+        if (response.status === 404) {
           setNotFound(true);
-          setLoading(false);
-          return null;
+          return;
         }
-        return res.json();
-      })
-      .then((data: ProjectResponse | null) => {
-        if (!data) return;
+        if (!response.ok) throw new Error('Failed to load project');
+
+        const data = await response.json() as ProjectResponse;
         setTitle(data.title);
         setDescription(data.description || '');
         setOwner(data.owner);
         setPriority(data.priority);
         setEnvironment(data.environment);
+        setReportEmail(data.reportEmail || '');
         setUrls(
           data.urls.length > 0
-            ? data.urls.map((u) => ({ url: u.url, pageType: u.pageType, priority: u.priority }))
-            : [{ url: '', pageType: 'homepage', priority: 'high' }]
+            ? data.urls.map(urlEntry => ({
+                url: urlEntry.url,
+                pageType: urlEntry.pageType,
+                priority: urlEntry.priority,
+              }))
+            : [{ url: '', pageType: 'homepage', priority: 'high' }],
         );
-        setLoading(false);
-      })
-      .catch(() => {
+      } catch {
         setErrors(['Failed to load project']);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    loadProject();
   }, [id]);
 
-  function addUrl() {
+  const addUrl = () => {
     if (urls.length < 5) {
-      setUrls([...urls, { url: '', pageType: 'homepage', priority: 'medium' }]);
+      setUrls(previous => [...previous, { url: '', pageType: 'homepage', priority: 'medium' }]);
     }
-  }
+  };
 
-  function removeUrl(index: number) {
-    setUrls(urls.filter((_, i) => i !== index));
-  }
+  const removeUrl = (index: number) => {
+    setUrls(previous => previous.filter((_, currentIndex) => currentIndex !== index));
+  };
 
-  function updateUrl(index: number, field: keyof UrlEntry, value: string) {
-    setUrls(urls.map((u, i) => (i === index ? { ...u, [field]: value } : u)));
-  }
+  const updateUrl = (index: number, field: keyof UrlEntry, value: string) => {
+    setUrls(previous => previous.map((urlEntry, currentIndex) => (
+      currentIndex === index ? { ...urlEntry, [field]: value } : urlEntry
+    )));
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setSubmitting(true);
     setErrors([]);
 
@@ -84,161 +105,166 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
       owner,
       priority,
       environment,
-      urls: urls.filter((u) => u.url.trim() !== ''),
+      reportEmail: reportEmail || undefined,
+      urls: urls.filter(urlEntry => urlEntry.url.trim() !== ''),
     };
 
     try {
-      const res = await fetch(`/api/projects/${id}`, {
+      const response = await fetch(`/api/projects/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      const data = await response.json() as ProjectUpdateResponse;
 
-      const data = await res.json();
-
-      if (res.status === 200) {
+      if (response.status === 200) {
         router.push('/projects');
-      } else if (res.status === 422) {
-        setErrors(data.details || [data.error]);
+      } else if (response.status === 422) {
+        setErrors(data.details ?? [data.error ?? 'Validation failed']);
       } else {
-        setErrors([data.error || 'An unexpected error occurred']);
+        setErrors([data.error ?? 'An unexpected error occurred']);
       }
     } catch {
-      setErrors(['Network error — please try again']);
+      setErrors(['Network error - please try again']);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl p-8">
+        <p className="text-gray-500">Loading project...</p>
+      </div>
+    );
   }
 
-  if (loading) return <div style={styles.container}><p>Loading project...</p></div>;
-  if (notFound) return (
-    <div style={styles.container}>
-      <p>Project not found.</p>
-      <a href="/projects" style={styles.back}>← Back to projects</a>
-    </div>
-  );
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-3xl p-8">
+        <p>Project not found.</p>
+        <Link href="/projects" className="text-sm text-gray-500 no-underline hover:text-gray-800">
+          ← Back to projects
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <a href="/projects" style={styles.back}>← Back to projects</a>
-        <h1 style={styles.title}>Edit Project</h1>
+    <div className="mx-auto max-w-3xl p-6 sm:p-8">
+      <div className="mb-6">
+        <Link href="/projects" className="text-sm text-gray-500 no-underline hover:text-gray-800">
+          ← Back to projects
+        </Link>
+        <h1 className="mt-2 text-3xl font-bold text-gray-900">Edit Project</h1>
       </div>
 
       {errors.length > 0 && (
-        <div style={styles.errorBox}>
+        <div className="mb-6 rounded-md border border-red-300 bg-red-100 p-4 text-sm text-red-800">
           <strong>Please fix the following errors:</strong>
-          <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
-            {errors.map((e, i) => <li key={i}>{e}</li>)}
+          <ul className="mt-2 list-disc pl-5">
+            {errors.map((error, index) => <li key={`${error}-${index}`}>{error}</li>)}
           </ul>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Project Details</h2>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <section className="rounded-lg border border-gray-200 bg-gray-50 p-6">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Project Details</h2>
 
-          <div style={styles.field}>
-            <label style={styles.label}>Title <span style={styles.required}>*</span></label>
-            <input style={styles.input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Main Marketing Site" required />
-          </div>
-
-          <div style={styles.field}>
-            <label style={styles.label}>Description</label>
-            <textarea style={{ ...styles.input, height: '80px', resize: 'vertical' }} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" />
-          </div>
-
-          <div style={styles.row}>
-            <div style={{ ...styles.field, flex: 1 }}>
-              <label style={styles.label}>Owner / Team <span style={styles.required}>*</span></label>
-              <input style={styles.input} value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="e.g. Platform Team" required />
+          <div className="space-y-4">
+            <div className={fieldClass}>
+              <label className={labelClass}>Title <span className="text-red-500">*</span></label>
+              <input className={inputClass} value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g. Main Marketing Site" required />
             </div>
 
-            <div style={{ ...styles.field, flex: 1 }}>
-              <label style={styles.label}>Priority</label>
-              <select style={styles.input} value={priority} onChange={(e) => setPriority(e.target.value)}>
-                {PRIORITIES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-              </select>
+            <div className={fieldClass}>
+              <label className={labelClass}>Description</label>
+              <textarea className={`${inputClass} min-h-20 resize-y`} value={description} onChange={event => setDescription(event.target.value)} placeholder="Optional description" />
             </div>
 
-            <div style={{ ...styles.field, flex: 1 }}>
-              <label style={styles.label}>Environment <span style={styles.required}>*</span></label>
-              <select style={styles.input} value={environment} onChange={(e) => setEnvironment(e.target.value)}>
-                <option value="Production">Production</option>
-                <option value="Staging">Staging</option>
-              </select>
+            <div className={fieldClass}>
+              <label className={labelClass}>Report Email(s)</label>
+              <input className={inputClass} type="text" value={reportEmail} onChange={event => setReportEmail(event.target.value)} placeholder="e.g. alerts@example.com, team@example.com (comma separated, optional)" />
+              <span className="text-xs text-gray-500">Separate multiple email addresses with commas.</span>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className={fieldClass}>
+                <label className={labelClass}>Owner / Team <span className="text-red-500">*</span></label>
+                <input className={inputClass} value={owner} onChange={event => setOwner(event.target.value)} placeholder="e.g. Platform Team" required />
+              </div>
+
+              <div className={fieldClass}>
+                <label className={labelClass}>Priority</label>
+                <select className={selectClass} value={priority} onChange={event => setPriority(event.target.value)}>
+                  {PRIORITIES.map(value => <option key={value} value={value}>{titleCase(value)}</option>)}
+                </select>
+              </div>
+
+              <div className={fieldClass}>
+                <label className={labelClass}>Environment <span className="text-red-500">*</span></label>
+                <select className={selectClass} value={environment} onChange={event => setEnvironment(event.target.value)}>
+                  <option value="Production">Production</option>
+                  <option value="Staging">Staging</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div style={styles.section}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2 style={{ ...styles.sectionTitle, margin: 0 }}>Monitored URLs <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 400 }}>(up to 5)</span></h2>
+        <section className="rounded-lg border border-gray-200 bg-gray-50 p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="m-0 text-lg font-semibold text-gray-900">
+              Monitored URLs <span className="text-sm font-normal text-gray-500">(up to 5)</span>
+            </h2>
             {urls.length < 5 && (
-              <button type="button" onClick={addUrl} style={styles.addUrlBtn}>+ Add URL</button>
+              <button type="button" onClick={addUrl} className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm text-blue-600 transition hover:bg-blue-100">
+                + Add URL
+              </button>
             )}
           </div>
 
-          {urls.map((urlEntry, index) => (
-            <div key={index} style={styles.urlRow}>
-              <div style={{ flex: 3 }}>
-                <label style={styles.label}>URL <span style={styles.required}>*</span></label>
-                <input
-                  style={styles.input}
-                  value={urlEntry.url}
-                  onChange={(e) => updateUrl(index, 'url', e.target.value)}
-                  placeholder="https://example.com/page"
-                  type="url"
-                />
+          <div className="space-y-4">
+            {urls.map((urlEntry, index) => (
+              <div key={index} className="grid items-end gap-3 md:grid-cols-[3fr_1fr_1fr_auto]">
+                <div className={fieldClass}>
+                  <label className={labelClass}>URL <span className="text-red-500">*</span></label>
+                  <input className={inputClass} value={urlEntry.url} onChange={event => updateUrl(index, 'url', event.target.value)} placeholder="https://example.com/page" type="url" />
+                </div>
+                <div className={fieldClass}>
+                  <label className={labelClass}>Page Type</label>
+                  <select className={selectClass} value={urlEntry.pageType} onChange={event => updateUrl(index, 'pageType', event.target.value)}>
+                    {PAGE_TYPES.map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </div>
+                <div className={fieldClass}>
+                  <label className={labelClass}>Priority</label>
+                  <select className={selectClass} value={urlEntry.priority} onChange={event => updateUrl(index, 'priority', event.target.value)}>
+                    {PRIORITIES.map(value => <option key={value} value={value}>{titleCase(value)}</option>)}
+                  </select>
+                </div>
+                {urls.length > 1 && (
+                  <button type="button" onClick={() => removeUrl(index)} className="rounded-md bg-red-100 px-3 py-2 text-red-800 transition hover:bg-red-200" aria-label="Remove URL">
+                    ✕
+                  </button>
+                )}
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={styles.label}>Page Type</label>
-                <select style={styles.input} value={urlEntry.pageType} onChange={(e) => updateUrl(index, 'pageType', e.target.value)}>
-                  {PAGE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={styles.label}>Priority</label>
-                <select style={styles.input} value={urlEntry.priority} onChange={(e) => updateUrl(index, 'priority', e.target.value)}>
-                  {PRIORITIES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-                </select>
-              </div>
-              {urls.length > 1 && (
-                <button type="button" onClick={() => removeUrl(index)} style={styles.removeBtn} aria-label="Remove URL">✕</button>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </section>
 
-        <div style={styles.actions}>
-          <a href="/projects" style={styles.cancelBtn}>Cancel</a>
-          <button type="submit" disabled={submitting} style={styles.submitBtn}>
+        <div className="flex justify-end gap-4 pt-2">
+          <Link href="/projects" className="rounded-md border border-gray-300 px-5 py-2 text-sm text-gray-700 no-underline transition hover:bg-gray-100">
+            Cancel
+          </Link>
+          <button type="submit" disabled={submitting} className="rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70">
             {submitting ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </form>
     </div>
   );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: '800px', margin: '0 auto', padding: '2rem', fontFamily: 'system-ui, sans-serif' },
-  header: { marginBottom: '1.5rem' },
-  back: { color: '#6b7280', textDecoration: 'none', fontSize: '0.9rem' },
-  title: { margin: '0.5rem 0 0', fontSize: '1.75rem' },
-  errorBox: { background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '1rem', marginBottom: '1.5rem', color: '#991b1b', fontSize: '0.9rem' },
-  form: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
-  section: { background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.5rem' },
-  sectionTitle: { margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 600 },
-  field: { display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '1rem' },
-  row: { display: 'flex', gap: '1rem' },
-  label: { fontSize: '0.875rem', fontWeight: 500, color: '#374151' },
-  required: { color: '#ef4444' },
-  input: { padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', width: '100%', boxSizing: 'border-box' as const },
-  urlRow: { display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '0.75rem' },
-  addUrlBtn: { background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.4rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' },
-  removeBtn: { background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', padding: '0.5rem 0.6rem', cursor: 'pointer', alignSelf: 'flex-end' },
-  actions: { display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '0.5rem' },
-  cancelBtn: { padding: '0.6rem 1.25rem', borderRadius: '6px', border: '1px solid #d1d5db', color: '#374151', textDecoration: 'none', fontSize: '0.9rem' },
-  submitBtn: { padding: '0.6rem 1.5rem', borderRadius: '6px', background: '#2563eb', color: '#fff', border: 'none', fontSize: '0.9rem', cursor: 'pointer', fontWeight: 500 },
 };
+
+export default EditProjectPage;

@@ -1,5 +1,6 @@
 import type { Logger } from 'pino';
 import { prisma } from '@/lib/prisma';
+import { Project } from '@prisma/client';
 import { WeeklyReport, ProjectReport, UrlReport, Opportunity, Environment, AuditStatus } from '@/types';
 
 /**
@@ -7,11 +8,11 @@ import { WeeklyReport, ProjectReport, UrlReport, Opportunity, Environment, Audit
  * Groups results by project, includes failed runs with null metrics.
  * Filters to only records with createdAt >= cycleStartedAt.
  */
-export async function generateReport(
+export const generateReport = async(
   auditRunIds: string[],
   cycleStartedAt: Date,
   log: Logger
-): Promise<WeeklyReport> {
+): Promise<WeeklyReport> => {
   log.info({ stage: 'report-generator', auditRunCount: auditRunIds.length }, 'Assembling weekly report');
 
   const auditRuns = await prisma.auditRun.findMany({
@@ -28,7 +29,7 @@ export async function generateReport(
 
   // Group by project
   const projectMap = new Map<string, {
-    project: typeof auditRuns[0]['project'];
+    project: Project;
     urlReports: UrlReport[];
   }>();
 
@@ -37,7 +38,7 @@ export async function generateReport(
 
     if (!projectMap.has(projectId)) {
       projectMap.set(projectId, {
-        project: run.project,
+        project: run.project as Project,
         urlReports: [],
       });
     }
@@ -60,9 +61,11 @@ export async function generateReport(
         inpOrTbt: run.inpOrTbt,
         fcp: run.fcp,
         speedIndex: run.speedIndex,
+        ttfb: (run as typeof run & { ttfb: number | null }).ttfb,
       },
       opportunities,
       aiSummary: run.aiSummary,
+      device: run.device as 'mobile' | 'desktop',
     };
 
     projectMap.get(projectId)!.urlReports.push(urlReport);
@@ -73,6 +76,7 @@ export async function generateReport(
     projectTitle: project.title,
     owner: project.owner,
     environment: project.environment as Environment,
+    reportEmail: (project as typeof project & { reportEmail: string | null }).reportEmail,
     urls: urlReports,
   }));
 

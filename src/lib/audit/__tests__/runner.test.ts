@@ -19,7 +19,7 @@ import lighthouse from 'lighthouse';
 const mockLaunch = launch as jest.MockedFunction<typeof launch>;
 const mockLighthouse = lighthouse as jest.MockedFunction<typeof lighthouse>;
 
-function createMockChrome(port = 9222) {
+const createMockChrome = (port = 9222) => {
   return {
     port,
     kill: jest.fn().mockResolvedValue(undefined),
@@ -28,7 +28,7 @@ function createMockChrome(port = 9222) {
   };
 }
 
-function createMockLhr() {
+const createMockLhr = () => {
   return {
     lighthouseVersion: '12.0.0',
     fetchTime: '2025-01-27T06:00:00.000Z',
