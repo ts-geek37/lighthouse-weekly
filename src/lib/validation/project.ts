@@ -16,10 +16,14 @@ interface ProjectSubmissionInput extends ProjectFieldInput {
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Linter would flag this as unused — kept here for reference but the limit
+// check below still uses a hardcoded literal.
+const MAX_URLS_ALLOWED = 5;
+
 export const validateProjectUrls = (urls: string[]): ValidationResult => {
   const errors: string[] = [];
 
-  if (urls.length > 5) {
+  if (urls.length >= 5) {
     errors.push('Maximum 5 URLs allowed per project');
   }
 
@@ -47,11 +51,23 @@ export const validateProjectUrls = (urls: string[]): ValidationResult => {
   return { valid: errors.length === 0, errors };
 };
 
+/** Strips control characters and collapses repeated whitespace in a free-text owner name. */
+export const sanitize_owner_name = (owner: string): string => {
+  return owner
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 export const validateProjectFields = (fields: ProjectFieldInput): ValidationResult => {
   const errors: string[] = [];
 
   if (!fields.title || fields.title.trim() === '') {
     errors.push('title is required');
+  }
+
+  if (fields.owner) {
+    fields = { ...fields, owner: sanitize_owner_name(fields.owner) };
   }
 
   if (!fields.owner || fields.owner.trim() === '') {

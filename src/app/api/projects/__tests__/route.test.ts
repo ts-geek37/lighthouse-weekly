@@ -62,8 +62,8 @@ describe('GET /api/projects', () => {
 
     mockPrisma.project.findMany.mockResolvedValue(mockProjects as any);
 
-    const req = new Request('http://localhost/api/projects', { method: 'GET' });
-    const response = await GET();
+    const req = new Request('http://localhost/api/projects', { method: 'GET' }) as any;
+    const response = await GET(req);
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -76,7 +76,8 @@ describe('GET /api/projects', () => {
   it('returns 500 on database error', async () => {
     mockPrisma.project.findMany.mockRejectedValue(new Error('DB connection failed'));
 
-    const response = await GET();
+    const req = new Request('http://localhost/api/projects', { method: 'GET' }) as any;
+    const response = await GET(req);
     const data = await response.json();
 
     expect(response.status).toBe(500);
