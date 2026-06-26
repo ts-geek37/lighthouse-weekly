@@ -5,7 +5,7 @@ import { AgentPrompt } from "@/types";
 
 interface AgentPromptCardProps {
   prompt: AgentPrompt;
-  index: number;
+  index: string;
 }
 
 interface CopyButtonProps {
