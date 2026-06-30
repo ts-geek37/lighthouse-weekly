@@ -33,8 +33,27 @@ const mapProjectToResponse = (project: Project & { urls: PrismaProjectUrl[] }): 
     })),
 });
 
-export const GET = async () => {
+export const GET = async (request: NextRequest) => {
   try {
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
+
+    // Title search uses a raw query so we can do a case-insensitive partial match
+    // without relying on a DB-specific Prisma filter mode.
+    if (search) {
+      const rawProjects = await prisma.$queryRawUnsafe<Project[]>(
+        `SELECT * FROM "Project" WHERE title ILIKE '%${search}%' ORDER BY "createdAt" DESC`
+      );
+
+      const withUrls = [];
+      for (const project of rawProjects) {
+        const urls = await prisma.projectUrl.findMany({ where: { projectId: project.id } });
+        withUrls.push(mapProjectToResponse({ ...project, urls }));
+      }
+
+      return NextResponse.json(withUrls);
+    }
+
     const projects = await prisma.project.findMany({
       include: { urls: true },
       orderBy: { createdAt: 'desc' },

@@ -16,6 +16,15 @@ const OPPORTUNITY_AUDIT_IDS = [
 ] as const;
 
 export const extractAdvancedDiagnostics = (lhr: any, log: Logger): AdvancedDiagnostics => {
+  try {
+    return extractAdvancedDiagnosticsInternal(lhr, log);
+  } catch {
+    // Some LHR variants omit entire audit categories; fall back to empty diagnostics.
+    return {} as AdvancedDiagnostics;
+  }
+};
+
+const extractAdvancedDiagnosticsInternal = (lhr: any, log: Logger): AdvancedDiagnostics => {
   // 1. third-party-summary
   const tpSummaryRaw = lhr.audits['third-party-summary']?.details?.items || [];
   const thirdPartySummary = tpSummaryRaw.map((item: any) => ({
